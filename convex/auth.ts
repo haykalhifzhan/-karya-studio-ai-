@@ -123,18 +123,18 @@ export const updateUser = mutation({
 
 // Complete onboarding
 export const completeOnboarding = mutation({
-    args: { clerkId: v.string() },
-    handler: async (ctx, { clerkId }) => {
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
-            .unique();
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
 
+        const user = await ctx.db.get(userId);
         if (!user) throw new Error("User not found");
 
-        await ctx.db.patch(user._id, {
+        await ctx.db.patch(userId, {
             onboardingCompleted: true,
             updatedAt: Date.now(),
         });
+
+        return true;
     },
 });

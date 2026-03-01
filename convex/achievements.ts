@@ -86,3 +86,39 @@ export const unlock = mutation({
         return id;
     },
 });
+
+// Complete onboarding dan unlock achievement
+export const completeOnboardingAndUnlock = mutation({
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const user = await ctx.db.get(userId);
+        if (!user) throw new Error("User not found");
+
+        // Update onboarding status
+        await ctx.db.patch(userId, {
+            onboardingCompleted: true,
+            updatedAt: Date.now(),
+        });
+
+        // Unlock first-step achievement kalau belum
+        const existing = await ctx.db
+            .query("achievements")
+            .withIndex("by_user_achievement", (q) =>
+                q.eq("userId", userId).eq("achievementId", "first-step")
+            )
+            .unique();
+
+        let achievementId = null;
+        if (!existing) {
+            achievementId = await ctx.db.insert("achievements", {
+                userId,
+                achievementId: "first-step",
+                unlockedAt: Date.now(),
+            });
+        }
+
+        return { success: true, achievementId };
+    },
+});

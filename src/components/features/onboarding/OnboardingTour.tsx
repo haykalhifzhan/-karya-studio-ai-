@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { useUserStore } from '@/stores/userStore';
+import { useUserStore, useCompleteOnboarding } from '@/stores/userStore';
 import { toast } from 'sonner';
 
 const steps = [
@@ -106,27 +106,40 @@ export function OnboardingTour() {
   const [currentStep, setCurrentStep] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [isCompleting, setIsCompleting] = useState(false);
   const router = useRouter();
-  const { onboardingCompleted, completeOnboarding, unlockAchievement } = useUserStore();
+  const { user } = useUserStore();
+  const { complete } = useCompleteOnboarding();
 
   useEffect(() => {
-    if (onboardingCompleted) {
+    if (user && !user.onboardingCompleted) {
+      setIsVisible(true);
+    } else {
       setIsVisible(false);
     }
-  }, [onboardingCompleted]);
+  }, [user, user?.onboardingCompleted]);
 
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback(async () => {
+    if (isCompleting) return;
+    setIsCompleting(true);
+
     setShowConfetti(true);
-    completeOnboarding();
-    unlockAchievement('first-step');
-    toast.success('Onboarding complete! You earned the "First Step" badge!');
+
+    try {
+      // Complete onboarding di Convex + unlock achievement
+      await complete();
+      toast.success('Onboarding complete! You earned the "First Step" badge!');
+    } catch (error) {
+      toast.error('Failed to save progress, but you can continue!');
+      console.error(error);
+    }
 
     setTimeout(() => {
       setShowConfetti(false);
       setIsVisible(false);
       router.push('/dashboard');
     }, 2500);
-  }, [completeOnboarding, unlockAchievement, router]);
+  }, [complete, router, isCompleting]);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -140,13 +153,17 @@ export function OnboardingTour() {
     if (currentStep > 0) setCurrentStep((s) => s - 1);
   };
 
-  const handleSkip = () => {
-    completeOnboarding();
+  const handleSkip = async () => {
+    try {
+      await complete();
+    } catch (error) {
+      console.error(error);
+    }
     setIsVisible(false);
     router.push('/dashboard');
   };
 
-  if (!isVisible || onboardingCompleted) return null;
+  if (!isVisible || user?.onboardingCompleted) return null;
 
   const step = steps[currentStep];
   const Icon = step.icon;
@@ -192,13 +209,12 @@ export function OnboardingTour() {
               {steps.map((_, i) => (
                 <button
                   key={i}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    i === currentStep
-                      ? 'w-8 bg-primary'
-                      : i < currentStep
-                        ? 'w-2 bg-primary/50'
-                        : 'w-2 bg-muted'
-                  }`}
+                  className={`h-2 rounded-full transition-all duration-300 ${i === currentStep
+                    ? 'w-8 bg-primary'
+                    : i < currentStep
+                      ? 'w-2 bg-primary/50'
+                      : 'w-2 bg-muted'
+                    }`}
                   onClick={() => setCurrentStep(i)}
                 />
               ))}
@@ -209,20 +225,35 @@ export function OnboardingTour() {
               <Button
                 variant="ghost"
                 onClick={handleBack}
-                disabled={currentStep === 0}
+                disabled={currentStep === 0 || isCompleting}
                 className="gap-1"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Back
               </Button>
 
-              <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
+              <Button
+                variant="ghost"
+                onClick={handleSkip}
+                className="text-muted-foreground"
+                disabled={isCompleting}
+              >
                 Skip Tour
               </Button>
 
-              <Button onClick={handleNext} className="gap-1 bg-primary hover:bg-primary/90">
-                {isLastStep ? 'Get Started!' : 'Next'}
-                {!isLastStep && <ChevronRight className="h-4 w-4" />}
+              <Button
+                onClick={handleNext}
+                className="gap-1 bg-primary hover:bg-primary/90"
+                disabled={isCompleting}
+              >
+                {isCompleting ? (
+                  <span className="animate-spin">⏳</span>
+                ) : (
+                  <>
+                    {isLastStep ? 'Get Started!' : 'Next'}
+                    {!isLastStep && <ChevronRight className="h-4 w-4" />}
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>

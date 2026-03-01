@@ -209,16 +209,23 @@ export default function VideoGeneratorPage() {
 
   return (
     <div className="container max-w-7xl mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Video Generator</h1>
-        <p className="text-muted-foreground">
-          Transform your product images into engaging marketing videos with AI-powered motion effects
-        </p>
+      <div className="mb-8 animate-fade-in-up">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-3 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl shadow-lg">
+            <Video className="w-8 h-8 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Video Generator</h1>
+            <p className="text-muted-foreground">
+              Transform your product images into engaging marketing videos with AI-powered motion effects
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* LEFT SIDE - Input Form */}
-        <div className="space-y-6">
+        <div className="space-y-6 animate-slide-in-left">
           {/* Image Upload Zone */}
           <Card>
             <CardContent className="p-6">
@@ -268,11 +275,10 @@ export default function VideoGeneratorPage() {
                     <div
                       key={sample.url}
                       onClick={() => handleSampleSelect(sample.url)}
-                      className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
-                        imageUrl === sample.url
-                          ? 'border-primary ring-2 ring-primary/20'
-                          : 'border-transparent'
-                      }`}
+                      className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${imageUrl === sample.url
+                        ? 'border-primary ring-2 ring-primary/20'
+                        : 'border-transparent'
+                        }`}
                     >
                       <img
                         src={sample.url}
@@ -300,11 +306,10 @@ export default function VideoGeneratorPage() {
                     <Card
                       key={style.id}
                       onClick={() => setSelectedMotion(style.id)}
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        selectedMotion === style.id
-                          ? 'border-2 border-primary ring-2 ring-primary/20'
-                          : 'border-2 border-transparent'
-                      }`}
+                      className={`cursor-pointer transition-all hover:shadow-md ${selectedMotion === style.id
+                        ? 'border-2 border-primary ring-2 ring-primary/20'
+                        : 'border-2 border-transparent'
+                        }`}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
@@ -373,7 +378,7 @@ export default function VideoGeneratorPage() {
         </div>
 
         {/* RIGHT SIDE - Preview */}
-        <div className="lg:sticky lg:top-8 h-fit">
+        <div className="lg:sticky lg:top-8 h-fit animate-slide-in-right">
           <Card>
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold mb-4">Preview</h3>
@@ -413,7 +418,7 @@ export default function VideoGeneratorPage() {
                       onEnded={() => setIsPlaying(false)}
                       controls
                     />
-                    
+
                     {/* Play/Pause Overlay */}
                     <div
                       onClick={togglePlay}

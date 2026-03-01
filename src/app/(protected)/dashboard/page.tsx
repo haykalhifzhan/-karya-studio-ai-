@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Calendar,
   Camera,
+  LayoutDashboard,
   Lightbulb,
   Trophy,
   Video,
@@ -63,7 +64,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (!user || !stats || achievementsWithProgress === undefined) {
+  if (!user || !stats) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
@@ -75,7 +76,10 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background p-6 space-y-8">
       {/* Welcome Header */}
       <div className="animate-fade-in-up">
-        <h1 className="text-4xl font-bold text-foreground mb-2">
+        <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
+          <div className='bg-gradient-to-br from-blue-400 to-blue-600 p-3 rounded-xl shadow-lg'>
+            <LayoutDashboard className="w-8 h-8 text-white" />
+          </div>
           Welcome back, {user?.name || 'User'}!
         </h1>
         <p className="text-muted-foreground mb-4">Here&apos;s what&apos;s happening with your creative studio today.</p>
@@ -304,12 +308,12 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-3">
                       <div
                         className={`p-3 rounded-xl ${achievement.rarity === 'platinum'
-                            ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white'
-                            : achievement.rarity === 'gold'
-                              ? 'bg-gradient-to-br from-gold-300 to-gold-500 text-white'
-                              : achievement.rarity === 'silver'
-                                ? 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-700'
-                                : 'bg-gradient-to-br from-orange-300 to-orange-500 text-white'
+                          ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white'
+                          : achievement.rarity === 'gold'
+                            ? 'bg-gradient-to-br from-gold-300 to-gold-500 text-white'
+                            : achievement.rarity === 'silver'
+                              ? 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-700'
+                              : 'bg-gradient-to-br from-orange-300 to-orange-500 text-white'
                           }`}
                       >
                         <Trophy className="w-6 h-6" />

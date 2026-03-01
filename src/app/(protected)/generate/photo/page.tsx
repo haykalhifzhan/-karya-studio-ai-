@@ -1,17 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { Camera, Sparkles, Download, Heart, Loader2, Image as ImageIcon, Aperture, Sun, Crown, Smile } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { useGenerationStore } from '@/stores/generationStore';
 import { useUserStore } from '@/stores/userStore';
+import type { PhotoStyle } from '@/types';
+import { Aperture, Camera, Crown, Download, Heart, Image as ImageIcon, Loader2, Smile, Sparkles, Sun } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import type { PhotoStyle, Generation } from '@/types';
 
 interface StyleOption {
   id: PhotoStyle;

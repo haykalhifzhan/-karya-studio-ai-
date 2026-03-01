@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { UserStats, UnlockedAchievement } from '@/types';
 import { useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 interface ConvexUser {
@@ -137,4 +137,27 @@ export function useSyncUserWithConvex() {
       );
     }
   }, [clerkUser, convexUser, clerkLoaded, setUser, logout, setLoading]);
+}
+
+export function useCompleteOnboarding() {
+  const completeOnboardingMutation = useMutation(api.achievements.completeOnboardingAndUnlock);
+  const { completeOnboarding, unlockAchievement } = useUserStore();
+
+  const complete = async () => {
+    try {
+      // Panggil Convex mutation
+      const result = await completeOnboardingMutation();
+
+      // Update local state
+      completeOnboarding();
+      unlockAchievement('first-step');
+
+      return result;
+    } catch (error) {
+      console.error("Failed to complete onboarding:", error);
+      throw error;
+    }
+  };
+
+  return { complete };
 }

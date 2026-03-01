@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Trophy, Lock, CheckCircle2, Camera, Video, Layers, TrendingUp, LayoutTemplate, Sparkles, Heart, Footprints } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { achievements as allAchievements } from '@/lib/constants';
 import { useUserStore } from '@/stores/userStore';
-import type { Achievement, AchievementRarity } from '@/types';
+import type { AchievementRarity } from '@/types';
+import { Camera, CheckCircle2, Footprints, Heart, Layers, LayoutTemplate, Lock, Sparkles, TrendingUp, Trophy, Video } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Footprints,
@@ -125,12 +125,12 @@ export default function AchievementsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="container mx-auto px-4 py-8 max-w-7xl animate-fade-in-up">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg">
-            <Trophy className="w-6 h-6 text-white" />
+          <div className="p-3 bg-gradient-to-br from-gold-400 to-gold-600 rounded-lg shadow-lg">
+            <Trophy className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-foreground">Achievements</h1>
           <Badge variant="secondary" className="ml-auto text-sm">

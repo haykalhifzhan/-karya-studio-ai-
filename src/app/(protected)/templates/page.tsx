@@ -53,12 +53,12 @@ export default function TemplatesPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="container mx-auto px-4 py-8 max-w-7xl animate-fade-in-up ">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg">
-            <LayoutTemplate className="w-6 h-6 text-white" />
+          <div className="p-3 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg shadow-lg">
+            <LayoutTemplate className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-foreground">Template Gallery</h1>
         </div>
