@@ -1,25 +1,25 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Camera,
-  Video,
-  LayoutTemplate,
-  Images,
-  Trophy,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-  LogOut,
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/stores/appStore';
 import { useUserStore } from '@/stores/userStore';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { ThemeToggle } from './ThemeToggle';
+import { useClerk } from '@clerk/nextjs';
+import {
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Images,
+  LayoutDashboard,
+  LayoutTemplate,
+  LogOut,
+  Sparkles,
+  Trophy,
+  Video,
+} from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -32,13 +32,15 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { signOut } = useClerk(); // Tambah ini
   const { sidebarOpen, toggleSidebar } = useAppStore();
   const { user, logout } = useUserStore();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Logout dari Clerk
+    await signOut({ redirectUrl: '/login' });
+    // Clear local state
     logout();
-    router.push('/login');
   };
 
   return (
@@ -96,9 +98,6 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div className="space-y-2 p-2">
-        <div className="flex items-center justify-center">
-          <ThemeToggle />
-        </div>
         {sidebarOpen && user && (
           <div className="flex items-center gap-3 rounded-lg px-3 py-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">

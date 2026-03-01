@@ -8,6 +8,7 @@ interface GenerationState {
   batchQueue: Generation[];
   isGenerating: boolean;
 
+  setHistory: (history: Generation[]) => void;
   addGeneration: (gen: Generation) => void;
   updateGeneration: (id: string, partial: Partial<Generation>) => void;
   removeGeneration: (id: string) => void;
@@ -27,6 +28,8 @@ export const useGenerationStore = create<GenerationState>()(
       currentGeneration: null,
       batchQueue: [],
       isGenerating: false,
+
+      setHistory: (history) => set({ history }),
 
       addGeneration: (gen) =>
         set((s) => ({ history: [gen, ...s.history] })),
@@ -64,3 +67,30 @@ export const useGenerationStore = create<GenerationState>()(
     { name: 'karya-generation-store' }
   )
 );
+
+// Hook untuk sync dengan Convex
+import { useEffect } from 'react';
+import { useQuery } from 'convex/react';
+import { useUser } from '@clerk/nextjs';
+import { api } from '../../convex/_generated/api';
+
+export function useSyncGenerationsWithConvex() {
+  const { user: clerkUser } = useUser();
+  const { setHistory } = useGenerationStore();
+
+  const generations = useQuery(
+    api.generations.getRecent,
+    clerkUser?.id ? { limit: 20 } : "skip"
+  );
+
+  useEffect(() => {
+    if (generations) {
+      const formatted = generations.map((g: any) => ({
+        ...g,
+        id: g._id,
+        createdAt: new Date(g.createdAt).toISOString(),
+      }));
+      setHistory(formatted);
+    }
+  }, [generations, setHistory]);
+}

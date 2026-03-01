@@ -1,40 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Navbar } from '@/components/layout/Navbar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { OnboardingTour } from '@/components/features/onboarding/OnboardingTour';
-import { useUserStore } from '@/stores/userStore';
 import { useAppStore } from '@/stores/appStore';
 import { cn } from '@/lib/utils';
+import { useSyncUserWithConvex } from '@/stores/userStore';
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated } = useUserStore();
+  const { isLoaded, isSignedIn } = useAuth();
   const { sidebarOpen } = useAppStore();
-  const [hydrated, setHydrated] = useState(false);
 
-  // Wait for zustand to rehydrate from localStorage
-  useEffect(() => {
-    const unsub = useUserStore.persist.onFinishHydration(() => {
-      setHydrated(true);
-    });
-    // If already hydrated (fast path)
-    if (useUserStore.persist.hasHydrated()) {
-      setHydrated(true);
-    }
-    return () => { unsub(); };
-  }, []);
+  // Sync user data dengan Convex
+  useSyncUserWithConvex();
 
   useEffect(() => {
-    if (hydrated && !isAuthenticated) {
+    if (isLoaded && !isSignedIn) {
       router.push('/login');
     }
-  }, [hydrated, isAuthenticated, router]);
+  }, [isLoaded, isSignedIn, router]);
 
-  if (!hydrated) {
+  // Loading state
+  if (!isLoaded) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -42,7 +34,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!isAuthenticated) {
+  // Not authenticated
+  if (!isSignedIn) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

@@ -40,28 +40,28 @@ export default function AchievementsPage() {
           currentProgress = onboardingCompleted ? 1 : 0;
           break;
         case 'creative-mind':
-          currentProgress = stats.totalPhotos;
+          currentProgress = stats?.totalPhotos || 0;
           break;
         case 'video-creator':
-          currentProgress = stats.totalVideos;
+          currentProgress = stats?.totalVideos || 0;
           break;
         case 'batch-pro':
-          currentProgress = stats.batchesCompleted;
+          currentProgress = stats?.batchesCompleted || 0;
           break;
         case 'consistent-user':
-          currentProgress = stats.totalGenerations;
+          currentProgress = stats?.totalGenerations || 0;
           break;
         case 'template-master':
-          currentProgress = stats.templatesUsed.length;
+          currentProgress = stats?.templatesUsed.length || 0;
           break;
         case 'prompt-expert':
-          currentProgress = stats.totalEnhancements;
+          currentProgress = stats?.totalEnhancements || 0;
           break;
         case 'social-sharer':
-          currentProgress = stats.favoritesCount;
+          currentProgress = stats?.favoritesCount || 0;
           break;
         case 'msme-champion':
-          currentProgress = stats.totalGenerations;
+          currentProgress = stats?.totalGenerations || 0;
           break;
       }
 
@@ -75,7 +75,7 @@ export default function AchievementsPage() {
         progressPercentage,
       };
     });
-  }, [allAchievements, unlockedAchievements, stats, onboardingCompleted]);
+  }, [unlockedAchievements, stats, onboardingCompleted]);
 
   const filteredAchievements = useMemo(() => {
     return achievementsWithProgress.filter((achievement) => {
@@ -132,19 +132,19 @@ export default function AchievementsPage() {
           <div className="p-2 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg">
             <Trophy className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Achievements</h1>
+          <h1 className="text-3xl font-bold text-foreground">Achievements</h1>
           <Badge variant="secondary" className="ml-auto text-sm">
             {unlockedCount}/{totalCount} Unlocked
           </Badge>
         </div>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Complete challenges and unlock badges as you master KaryaStudio AI.
         </p>
 
         {/* Progress Bar */}
         <div className="mt-4 space-y-2">
           <Progress value={(unlockedCount / totalCount) * 100} className="h-3" />
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             {Math.round((unlockedCount / totalCount) * 100)}% Complete
           </p>
         </div>
@@ -196,8 +196,8 @@ export default function AchievementsPage() {
       {filteredAchievements.length === 0 ? (
         <div className="text-center py-16">
           <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No achievements found</h3>
-          <p className="text-gray-600">Try adjusting your filters.</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">No achievements found</h3>
+          <p className="text-muted-foreground">Try adjusting your filters.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -232,7 +232,7 @@ export default function AchievementsPage() {
                     className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
                       achievement.isUnlocked
                         ? 'bg-gradient-to-br from-amber-400 to-amber-600'
-                        : 'bg-gray-200'
+                        : 'bg-muted'
                     }`}
                   >
                     <IconComponent
@@ -244,8 +244,8 @@ export default function AchievementsPage() {
 
                   {/* Info */}
                   <div className="space-y-2">
-                    <h3 className="text-lg font-bold text-gray-900">{achievement.name}</h3>
-                    <p className="text-sm text-gray-600">{achievement.description}</p>
+                    <h3 className="text-lg font-bold text-foreground">{achievement.name}</h3>
+                    <p className="text-sm text-muted-foreground">{achievement.description}</p>
 
                     {/* Rarity Badge */}
                     <Badge className={getRarityColor(achievement.rarity)}>
@@ -255,14 +255,14 @@ export default function AchievementsPage() {
                     {/* Progress */}
                     {!achievement.isUnlocked && (
                       <div className="mt-4 space-y-2">
-                        <div className="flex justify-between text-xs text-gray-600">
+                        <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Progress</span>
                           <span>
                             {achievement.currentProgress} / {achievement.threshold}
                           </span>
                         </div>
                         <Progress value={achievement.progressPercentage} className="h-2" />
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {achievement.threshold - achievement.currentProgress} more to unlock
                         </p>
                       </div>
@@ -270,7 +270,7 @@ export default function AchievementsPage() {
 
                     {/* Unlock Date */}
                     {achievement.isUnlocked && achievement.unlockedAt && (
-                      <div className="mt-4 text-xs text-gray-500">
+                      <div className="mt-4 text-xs text-muted-foreground">
                         Unlocked on {formatDate(achievement.unlockedAt)}
                       </div>
                     )}

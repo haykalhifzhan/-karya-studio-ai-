@@ -126,70 +126,71 @@
 :root {
   --radius: 0.625rem;
   --background: oklch(0.985 0.002 247);
-  --foreground: oklch(0.195 0.02 265);
+  --foreground: oklch(0.15 0.02 265);       /* Sedikit lebih gelap untuk readability */
+  
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.195 0.02 265);
+  --card-foreground: oklch(0.15 0.02 265);
+  
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.195 0.02 265);
-  --primary: oklch(0.279 0.041 264);
-  --primary-foreground: oklch(0.985 0.002 247);
-  --secondary: oklch(0.965 0.005 247);
-  --secondary-foreground: oklch(0.279 0.041 264);
-  --muted: oklch(0.965 0.005 247);
-  --muted-foreground: oklch(0.53 0.03 256);
-  --accent: oklch(0.828 0.161 84);
-  --accent-foreground: oklch(0.279 0.041 264);
+  --popover-foreground: oklch(0.15 0.02 265);
+  
+  --primary: oklch(0.65 0.15 85);           /* Gold lebih kaya */
+  --primary-foreground: oklch(0.15 0.02 265);
+  
+  --secondary: oklch(0.96 0.005 247);
+  --secondary-foreground: oklch(0.25 0.04 264);
+  
+  --muted: oklch(0.96 0.005 247);
+  --muted-foreground: oklch(0.5 0.03 256);  /* Sedikit lebih gelap */
+  
+  --accent: oklch(0.75 0.16 84);
+  --accent-foreground: oklch(0.15 0.02 265);
+  
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.01 247);
-  --input: oklch(0.91 0.01 247);
-  --ring: oklch(0.828 0.161 84);
-  --chart-1: oklch(0.828 0.161 84);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.769 0.188 70.08);
-  --chart-5: oklch(0.646 0.222 41.116);
-  --sidebar: oklch(0.279 0.041 264);
-  --sidebar-foreground: oklch(0.965 0.005 247);
-  --sidebar-primary: oklch(0.828 0.161 84);
-  --sidebar-primary-foreground: oklch(0.279 0.041 264);
-  --sidebar-accent: oklch(0.35 0.04 260);
-  --sidebar-accent-foreground: oklch(0.965 0.005 247);
-  --sidebar-border: oklch(0.4 0.03 260);
-  --sidebar-ring: oklch(0.828 0.161 84);
+  --destructive-foreground: oklch(0.985 0.002 247);
+  
+  --border: oklch(0.9 0.01 247);
+  --input: oklch(0.9 0.01 247);
+  --ring: oklch(0.65 0.15 85);
+  
+  --sidebar: oklch(0.985 0.002 247);
+  --sidebar-foreground: oklch(0.25 0.04 264);
+  --sidebar-primary: oklch(0.65 0.15 85);
+  --sidebar-primary-foreground: oklch(0.985 0.002 247);
+  --sidebar-accent: oklch(0.96 0.005 247);
+  --sidebar-accent-foreground: oklch(0.25 0.04 264);
+  --sidebar-border: oklch(0.9 0.01 247);
+  --sidebar-ring: oklch(0.65 0.15 85);
 }
 
 .dark {
-  --background: oklch(0.16 0.02 265);
-  --foreground: oklch(0.965 0.005 247);
-  --card: oklch(0.22 0.025 264);
-  --card-foreground: oklch(0.965 0.005 247);
-  --popover: oklch(0.22 0.025 264);
-  --popover-foreground: oklch(0.965 0.005 247);
-  --primary: oklch(0.828 0.161 84);
-  --primary-foreground: oklch(0.195 0.02 265);
-  --secondary: oklch(0.28 0.03 260);
-  --secondary-foreground: oklch(0.965 0.005 247);
-  --muted: oklch(0.28 0.03 260);
+  --background: oklch(0.12 0.015 265);      /* Lebih gelap */
+  --foreground: oklch(0.95 0.005 250);      /* Lebih terang */
+  --card: oklch(0.18 0.02 264);             /* Kontras dengan background */
+  --card-foreground: oklch(0.95 0.005 250);
+  --popover: oklch(0.18 0.02 264);
+  --popover-foreground: oklch(0.95 0.005 250);
+  --primary: oklch(0.75 0.15 85);           /* Gold sedikit lebih terang */
+  --primary-foreground: oklch(0.15 0.02 265); /* Dark navy untuk contrast */
+  --secondary: oklch(0.22 0.025 264);
+  --secondary-foreground: oklch(0.95 0.005 250);
+  --muted: oklch(0.22 0.025 264);
   --muted-foreground: oklch(0.65 0.02 255);
-  --accent: oklch(0.828 0.161 84);
-  --accent-foreground: oklch(0.195 0.02 265);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.35 0.025 260);
-  --input: oklch(0.35 0.025 260);
-  --ring: oklch(0.828 0.161 84);
-  --chart-1: oklch(0.828 0.161 84);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.16 0.02 265);
-  --sidebar-foreground: oklch(0.965 0.005 247);
-  --sidebar-primary: oklch(0.828 0.161 84);
-  --sidebar-primary-foreground: oklch(0.16 0.02 265);
-  --sidebar-accent: oklch(0.25 0.025 264);
-  --sidebar-accent-foreground: oklch(0.965 0.005 247);
-  --sidebar-border: oklch(0.35 0.025 260);
-  --sidebar-ring: oklch(0.828 0.161 84);
+  --accent: oklch(0.75 0.15 85);
+  --accent-foreground: oklch(0.15 0.02 265);
+  --destructive: oklch(0.65 0.22 25);
+  --destructive-foreground: oklch(0.95 0.005 250);
+  --border: oklch(0.25 0.02 260);
+  --input: oklch(0.25 0.02 260);
+  --ring: oklch(0.75 0.15 85);
+  --sidebar: oklch(0.08 0.01 265);          /* Lebih gelap dari background */
+  --sidebar-foreground: oklch(0.95 0.005 250);
+  --sidebar-primary: oklch(0.75 0.15 85);
+  --sidebar-primary-foreground: oklch(0.15 0.02 265);
+  --sidebar-accent: oklch(0.15 0.02 264);
+  --sidebar-accent-foreground: oklch(0.95 0.005 250);
+  --sidebar-border: oklch(0.2 0.015 260);
+  --sidebar-ring: oklch(0.75 0.15 85);
 }
 
 @layer base {
@@ -206,17 +207,29 @@
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706);
   }
+  .dark .text-gradient {
+    background-image: linear-gradient(135deg, #fcd34d, #fbbf24, #f59e0b); /* Lebih terang di dark */
+  }
   .bg-gradient-gold {
     background-image: linear-gradient(135deg, #fbbf24, #f59e0b);
   }
+  .dark .bg-gradient-gold {
+    background-image: linear-gradient(135deg, #fcd34d, #fbbf24); /* Lebih terang di dark */
+  }
   .bg-gradient-navy {
     background-image: linear-gradient(135deg, #1e293b, #334155);
+  }
+  .dark .bg-gradient-navy {
+    background-image: linear-gradient(135deg, #0f172a, #1e293b); /* Lebih gelap di dark */
   }
   .bg-gradient-hero {
     background-image: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
   }
   .glass {
-    @apply bg-white/80 dark:bg-navy-900/80 backdrop-blur-lg;
+    @apply bg-white/80 backdrop-blur-lg;
+  }
+  .dark .glass {
+    @apply bg-navy-950/80 backdrop-blur-lg; /* Lebih gelap di dark */
   }
   .shimmer-bg {
     background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.08), transparent);

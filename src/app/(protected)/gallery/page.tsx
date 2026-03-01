@@ -81,12 +81,12 @@ export default function GalleryPage() {
           <div className="p-2 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg">
             <ImageIcon className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Gallery</h1>
+          <h1 className="text-3xl font-bold text-foreground">Gallery</h1>
           <Badge variant="secondary" className="ml-auto text-sm">
             {filteredItems.length} items
           </Badge>
         </div>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           View and manage all your generated photos and videos in one place.
         </p>
       </div>
@@ -169,8 +169,8 @@ export default function GalleryPage() {
       {filteredItems.length === 0 ? (
         <div className="text-center py-16">
           <ImageIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No items found</h3>
-          <p className="text-gray-600">
+          <h3 className="text-lg font-semibold text-foreground mb-2">No items found</h3>
+          <p className="text-muted-foreground">
             {history.length === 0
               ? 'Start generating photos and videos to see them here.'
               : 'Try adjusting your filters or search query.'}
@@ -186,7 +186,7 @@ export default function GalleryPage() {
             >
               <CardContent className="p-0 relative">
                 {/* Thumbnail */}
-                <div className="relative aspect-square overflow-hidden rounded-t-lg bg-gray-100">
+                <div className="relative aspect-square overflow-hidden rounded-t-lg bg-muted">
                   <img
                     src={item.type === 'photo' ? item.resultUrls[0] : item.thumbnailUrl}
                     alt="Generated content"
@@ -218,7 +218,7 @@ export default function GalleryPage() {
                   >
                     <Heart
                       className={`w-4 h-4 ${
-                        item.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'
+                        item.isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
                       }`}
                     />
                   </button>
@@ -256,7 +256,7 @@ export default function GalleryPage() {
 
             <div className="space-y-4">
               {/* Image/Video */}
-              <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
+              <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
                 {selectedItem.type === 'photo' ? (
                   <img
                     src={selectedItem.resultUrls[0]}
@@ -275,16 +275,16 @@ export default function GalleryPage() {
               {/* Info */}
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Prompt</label>
-                  <p className="text-sm text-gray-900 mt-1 p-3 bg-gray-50 rounded-lg">
+                  <label className="text-sm font-medium text-foreground">Prompt</label>
+                  <p className="text-sm text-foreground mt-1 p-3 bg-muted rounded-lg">
                     {selectedItem.prompt}
                   </p>
                 </div>
 
                 {selectedItem.enhancedPrompt && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Enhanced Prompt</label>
-                    <p className="text-sm text-gray-600 mt-1 p-3 bg-gray-50 rounded-lg">
+                    <label className="text-sm font-medium text-foreground">Enhanced Prompt</label>
+                    <p className="text-sm text-muted-foreground mt-1 p-3 bg-muted rounded-lg">
                       {selectedItem.enhancedPrompt}
                     </p>
                   </div>
@@ -292,16 +292,16 @@ export default function GalleryPage() {
 
                 {selectedItem.style && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Style</label>
-                    <p className="text-sm text-gray-900 mt-1">
+                    <label className="text-sm font-medium text-foreground">Style</label>
+                    <p className="text-sm text-foreground mt-1">
                       {selectedItem.style}
                     </p>
                   </div>
                 )}
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Created</label>
-                  <p className="text-sm text-gray-900 mt-1">{formatDate(selectedItem.createdAt)}</p>
+                  <label className="text-sm font-medium text-foreground">Created</label>
+                  <p className="text-sm text-foreground mt-1">{formatDate(selectedItem.createdAt)}</p>
                 </div>
               </div>
 

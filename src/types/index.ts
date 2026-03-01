@@ -71,7 +71,7 @@ export interface Achievement {
 
 export interface UnlockedAchievement {
   achievementId: string;
-  unlockedAt: string;
+  unlockedAt: number;
 }
 
 export interface OnboardingStep {

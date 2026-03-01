@@ -1,20 +1,33 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { User, UserStats, UnlockedAchievement } from '@/types';
+import type { UserStats, UnlockedAchievement } from '@/types';
+import { useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+
+interface ConvexUser {
+  _id: string;
+  clerkId: string;
+  email: string;
+  name: string;
+  avatar?: string;
+  onboardingCompleted: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
 
 interface UserState {
-  user: User | null;
-  token: string | null;
+  user: ConvexUser | null;
   isAuthenticated: boolean;
-  onboardingCompleted: boolean;
-  stats: UserStats;
+  isLoading: boolean;
+  stats: UserStats | null;
   achievements: UnlockedAchievement[];
 
-  setUser: (user: User, token: string) => void;
+  setUser: (user: ConvexUser, stats?: UserStats, achievements?: UnlockedAchievement[]) => void;
+  setLoading: (loading: boolean) => void;
   logout: () => void;
   completeOnboarding: () => void;
-  incrementStat: (key: keyof Pick<UserStats, 'totalGenerations' | 'totalPhotos' | 'totalVideos' | 'totalEnhancements' | 'favoritesCount' | 'batchesCompleted'>) => void;
-  addTemplateUsed: (templateId: string) => void;
+  updateStats: (stats: Partial<UserStats>) => void;
   unlockAchievement: (achievementId: string) => void;
   hasAchievement: (achievementId: string) => boolean;
 }
@@ -29,57 +42,99 @@ const defaultStats: UserStats = {
   batchesCompleted: 0,
 };
 
+// Tanpa persist - auth di-handle oleh Clerk
 export const useUserStore = create<UserState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      onboardingCompleted: false,
-      stats: defaultStats,
-      achievements: [],
+  (set, get) => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: true,
+    stats: null,
+    achievements: [],
 
-      setUser: (user, token) =>
-        set({ user, token, isAuthenticated: true }),
+    setUser: (user, stats, achievements = []) =>
+      set({
+        user,
+        stats: stats || defaultStats,
+        achievements,
+        isAuthenticated: true,
+        isLoading: false
+      }),
 
-      logout: () =>
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-        }),
+    setLoading: (loading) => set({ isLoading: loading }),
 
-      completeOnboarding: () => set({ onboardingCompleted: true }),
+    logout: () =>
+      set({
+        user: null,
+        stats: null,
+        achievements: [],
+        isAuthenticated: false,
+        isLoading: false,
+      }),
 
-      incrementStat: (key) =>
-        set((s) => ({
-          stats: { ...s.stats, [key]: (s.stats[key] as number) + 1 },
-        })),
+    completeOnboarding: () =>
+      set((state) => ({
+        user: state.user ? { ...state.user, onboardingCompleted: true } : null,
+      })),
 
-      addTemplateUsed: (templateId) =>
-        set((s) => ({
-          stats: {
-            ...s.stats,
-            templatesUsed: s.stats.templatesUsed.includes(templateId)
-              ? s.stats.templatesUsed
-              : [...s.stats.templatesUsed, templateId],
-          },
-        })),
+    updateStats: (newStats) =>
+      set((state) => ({
+        stats: state.stats ? { ...state.stats, ...newStats } : defaultStats,
+      })),
 
-      unlockAchievement: (achievementId) =>
-        set((s) => {
-          if (s.achievements.find((a) => a.achievementId === achievementId)) return s;
-          return {
-            achievements: [
-              ...s.achievements,
-              { achievementId, unlockedAt: new Date().toISOString() },
-            ],
-          };
-        }),
+    unlockAchievement: (achievementId) =>
+      set((state) => {
+        if (state.achievements.find((a) => a.achievementId === achievementId)) {
+          return state;
+        }
+        return {
+          achievements: [
+            ...state.achievements,
+            { achievementId, unlockedAt: Date.now() },
+          ],
+        };
+      }),
 
-      hasAchievement: (achievementId) =>
-        !!get().achievements.find((a) => a.achievementId === achievementId),
-    }),
-    { name: 'karya-user-store' }
-  )
+    hasAchievement: (achievementId) =>
+      !!get().achievements.find((a) => a.achievementId === achievementId),
+  })
 );
+
+export function useSyncUserWithConvex() {
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const { setUser, setLoading, logout } = useUserStore();
+
+  const convexUser = useQuery(
+    api.auth.getUserWithStats,
+    clerkUser?.id ? { clerkId: clerkUser.id } : "skip"
+  );
+
+  useEffect(() => {
+    if (!clerkLoaded) return;
+
+    if (!clerkUser) {
+      logout();
+      setLoading(false);
+      return;
+    }
+
+    if (convexUser) {
+      setUser(
+        {
+          _id: convexUser._id,
+          clerkId: convexUser.clerkId,
+          email: convexUser.email,
+          name: convexUser.name,
+          avatar: convexUser.avatar,
+          onboardingCompleted: convexUser.onboardingCompleted,
+          createdAt: convexUser.createdAt,
+          updatedAt: convexUser.updatedAt,
+        },
+        convexUser.stats || undefined,
+        (convexUser.achievements || []).map((a: any) => ({
+          achievementId: a.achievementId,
+          unlockedAt: a.unlockedAt,
+        }))
+      );
+    }
+  }, [clerkUser, convexUser, clerkLoaded, setUser, logout, setLoading]);
+}
