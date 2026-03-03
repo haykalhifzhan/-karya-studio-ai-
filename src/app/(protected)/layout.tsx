@@ -10,6 +10,7 @@ import { OnboardingTour } from '@/components/features/onboarding/OnboardingTour'
 import { useAppStore } from '@/stores/appStore';
 import { cn } from '@/lib/utils';
 import { useSyncUserWithConvex } from '@/stores/userStore';
+import { LanguageProvider } from '@/contexts/LanguageContext';  // ✅ Import LanguageProvider
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -44,30 +45,33 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
-        <Sidebar />
+    // ✅ WRAP dengan LanguageProvider
+    <LanguageProvider>
+      <div className="flex h-screen overflow-hidden bg-background">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
+
+        {/* Main Content */}
+        <div
+          className={cn(
+            'flex flex-1 flex-col overflow-hidden transition-all duration-300',
+            sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'
+          )}
+        >
+          <Navbar />
+          <main className="flex-1 overflow-y-auto pb-20 lg:pb-6">
+            <div className="animate-fade-in p-4 lg:p-6">{children}</div>
+          </main>
+        </div>
+
+        {/* Mobile Bottom Nav */}
+        <MobileNav />
+
+        {/* Onboarding Tour */}
+        <OnboardingTour />
       </div>
-
-      {/* Main Content */}
-      <div
-        className={cn(
-          'flex flex-1 flex-col overflow-hidden transition-all duration-300',
-          sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'
-        )}
-      >
-        <Navbar />
-        <main className="flex-1 overflow-y-auto pb-20 lg:pb-6">
-          <div className="animate-fade-in p-4 lg:p-6">{children}</div>
-        </main>
-      </div>
-
-      {/* Mobile Bottom Nav */}
-      <MobileNav />
-
-      {/* Onboarding Tour */}
-      <OnboardingTour />
-    </div>
+    </LanguageProvider>
   );
 }

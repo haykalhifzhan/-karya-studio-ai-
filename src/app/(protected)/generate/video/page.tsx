@@ -6,183 +6,239 @@ import {
   Play,
   Pause,
   Download,
-  ZoomIn,
-  RotateCw,
-  Layers,
-  Cloud,
-  Blend,
-  Film,
   Loader2,
   Upload,
   Image as ImageIcon,
+  X,
+  Maximize2,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { useGenerationStore } from '@/stores/generationStore';
-import { useUserStore } from '@/stores/userStore';
 import { toast } from 'sonner';
-import type { MotionStyle, VideoDuration, Generation } from '@/types';
+import type { Generation } from '@/types';
 
-// Motion style data
 const motionStyles = [
-  {
-    id: 'zoom-in' as MotionStyle,
-    name: 'Zoom In',
-    description: 'Dramatic zoom into the product',
-    icon: ZoomIn,
-  },
-  {
-    id: 'rotation-360' as MotionStyle,
-    name: '360 Rotation',
-    description: 'Full rotation around product',
-    icon: RotateCw,
-  },
-  {
-    id: 'parallax' as MotionStyle,
-    name: 'Parallax',
-    description: 'Layered depth parallax effect',
-    icon: Layers,
-  },
-  {
-    id: 'smoke' as MotionStyle,
-    name: 'Smoke Effect',
-    description: 'Mysterious smoke reveal',
-    icon: Cloud,
-  },
-  {
-    id: 'smooth-transition' as MotionStyle,
-    name: 'Smooth Transition',
-    description: 'Gentle fade transitions',
-    icon: Blend,
-  },
-  {
-    id: 'cinematic-pan' as MotionStyle,
-    name: 'Cinematic Pan',
-    description: 'Wide cinematic movement',
-    icon: Film,
-  },
+  { id: 'smooth', name: 'Smooth', icon: '🌊', desc: 'Gentle, flowing movement' },
+  { id: 'dynamic', name: 'Dynamic', icon: '⚡', desc: 'Energetic, fast-paced' },
+  { id: 'cinematic', name: 'Cinematic', icon: '🎥', desc: 'Movie-like camera movement' },
+  { id: 'zoom-in', name: 'Zoom In', icon: '🔍', desc: 'Slow zoom into subject' },
+  { id: 'pan-left', name: 'Pan Left', icon: '⬅️', desc: 'Camera pans left' },
+  { id: 'pan-right', name: 'Pan Right', icon: '➡️', desc: 'Camera pans right' },
 ];
 
-// Sample images for demo
 const sampleImages = [
-  {
-    url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80',
-    name: 'Modern Watch',
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
-    name: 'Wireless Headphones',
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&q=80',
-    name: 'Sunglasses',
-  },
-  {
-    url: 'https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=800&q=80',
-    name: 'Sneakers',
-  },
+  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop',
+  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
+  'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&h=800&fit=crop',
+  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&h=800&fit=crop',
 ];
 
 export default function VideoGeneratorPage() {
-  const [imageUrl, setImageUrl] = useState<string>('');
-  const [imagePreview, setImagePreview] = useState<string>('');
-  const [selectedMotion, setSelectedMotion] = useState<MotionStyle>('zoom-in');
-  const [duration, setDuration] = useState<VideoDuration>(15);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [videoPrompt, setVideoPrompt] = useState('');
+  const [motionStyle, setMotionStyle] = useState('smooth');
+  const [duration, setDuration] = useState(5);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [generatedVideo, setGeneratedVideo] = useState<Generation | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  
+  // ✅ NEW: Enhance Prompt State
+  const [enhancedPrompt, setEnhancedPrompt] = useState('');
+  const [showEnhanceDialog, setShowEnhanceDialog] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { addGeneration } = useGenerationStore();
-  const { incrementStat } = useUserStore();
 
-  // Handle file upload
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setImagePreview(result);
-        setImageUrl(result);
-      };
-      reader.readAsDataURL(file);
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file (JPG, PNG, GIF)');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
+        return;
+      }
+      setUploadedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      toast.success('Image uploaded successfully');
     }
   };
 
-  // Handle sample image selection
-  const handleSampleSelect = (url: string) => {
-    setImageUrl(url);
-    setImagePreview(url);
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please drop an image file (JPG, PNG, GIF)');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
+        return;
+      }
+      setUploadedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      toast.success('Image uploaded successfully');
+    }
   };
 
-  // Handle video generation
-  const handleGenerate = async () => {
-    if (!imageUrl) {
-      toast.error('Please upload or select an image');
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSampleSelect = (url: string) => {
+    setPreviewUrl(url.trim());
+    setUploadedFile(null);
+  };
+
+  // ✅ NEW: Enhance Prompt Handler
+  const handleEnhancePrompt = async () => {
+    if (!videoPrompt.trim()) {
+      toast.error('Please enter a video description first');
       return;
     }
 
-    setIsGenerating(true);
-    setProgress(0);
-    setGeneratedVideo(null);
-
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 95) {
-          clearInterval(progressInterval);
-          return 95;
-        }
-        return prev + 5;
-      });
-    }, 250);
-
+    setIsEnhancing(true);
     try {
-      const response = await fetch('/api/generate/video', {
+      const response = await fetch('/api/enhance-video-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageUrl,
-          motionStyle: selectedMotion,
-          duration,
+        body: JSON.stringify({ 
+          prompt: videoPrompt,
+          motionStyle 
         }),
       });
 
       const data = await response.json();
 
-      clearInterval(progressInterval);
-      setProgress(100);
+      if (data.success) {
+        setEnhancedPrompt(data.enhanced);
+        setShowEnhanceDialog(true);
+        toast.success('Prompt enhanced successfully!');
+      } else {
+        toast.error('Failed to enhance prompt');
+      }
+    } catch (error) {
+      console.error('Enhance error:', error);
+      toast.error('Error enhancing prompt');
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleApplyEnhanced = () => {
+    setVideoPrompt(enhancedPrompt);
+    setShowEnhanceDialog(false);
+    toast.success('Enhanced prompt applied');
+  };
+
+  const handleKeepOriginal = () => {
+    setShowEnhanceDialog(false);
+    toast.info('Keeping original prompt');
+  };
+
+  const handleGenerate = async () => {
+    if (!previewUrl) {
+      toast.error('Please upload or select an image');
+      return;
+    }
+
+    setIsGenerating(true);
+    setProgress(10);
+    setGeneratedVideo(null);
+
+    try {
+      let imageUrlForApi = previewUrl.trim();
+      
+      if (uploadedFile) {
+        setProgress(20);
+        toast.info('Uploading image to OSS...');
+        
+        const formData = new FormData();
+        formData.append('file', uploadedFile);
+        
+        const uploadResponse = await fetch('/api/upload-to-oss', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        const uploadData = await uploadResponse.json();
+        
+        if (!uploadData.success) {
+          throw new Error(uploadData.message || 'Failed to upload image');
+        }
+        
+        imageUrlForApi = uploadData.url.trim();
+        console.log('✅ Uploaded to OSS:', imageUrlForApi);
+        setProgress(50);
+      }
+
+      setProgress(60);
+      toast.info('Generating video with AI...');
+
+      const response = await fetch('/api/generate/video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: imageUrlForApi,
+          prompt: videoPrompt,
+          motionStyle,
+          duration,
+          aspectRatio: '1280*720'
+        }),
+      });
+
+      const data = await response.json();
+      console.log('📥 Response:', data);
 
       if (data.success && data.generation) {
-        // Add to generation store
+        setProgress(100);
         addGeneration(data.generation);
-
-        // Update stats
-        incrementStat('totalVideos');
-        incrementStat('totalGenerations');
-
         setGeneratedVideo(data.generation);
         toast.success('Video generated successfully!');
       } else {
-        toast.error(data.message || 'Failed to generate video');
+        toast.error(data.message || 'Failed to generate video', {
+          description: data.hint || '',
+        });
       }
     } catch (error) {
-      clearInterval(progressInterval);
       console.error('Video generation error:', error);
-      toast.error('An error occurred during video generation');
+      toast.error('Error generating video', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
     } finally {
       setIsGenerating(false);
       setTimeout(() => setProgress(0), 1000);
     }
   };
 
-  // Handle video play/pause
   const togglePlay = () => {
     if (videoRef.current) {
       if (isPlaying) {
@@ -194,283 +250,369 @@ export default function VideoGeneratorPage() {
     }
   };
 
-  // Handle video download
-  const handleDownload = () => {
-    if (generatedVideo?.videoUrl) {
+  const handleDownload = async () => {
+    if (!generatedVideo?.videoUrl) return;
+
+    try {
+      const response = await fetch(generatedVideo.videoUrl, {
+        method: 'GET',
+        mode: 'cors',
+      });
+
+      if (!response.ok) throw new Error('Download failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = generatedVideo.videoUrl;
-      link.download = `karya-video-${generatedVideo.id}.mp4`;
+      link.href = url;
+      link.download = `karya-video-${Date.now()}.mp4`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success('Video download started!');
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Video downloaded successfully!');
+    } catch (error) {
+      console.error('Download error:', error);
+      window.open(generatedVideo.videoUrl, '_blank');
+      toast.success('Video opened in new tab');
     }
   };
 
   return (
-    <div className="container max-w-7xl mx-auto py-8 px-4">
-      <div className="mb-8 animate-fade-in-up">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-3 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl shadow-lg">
-            <Video className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Video Generator</h1>
-            <p className="text-muted-foreground">
-              Transform your product images into engaging marketing videos with AI-powered motion effects
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-navy-50 via-white to-gold-50 dark:from-navy-950 dark:via-navy-900 dark:to-navy-800 p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8 animate-fade-in-up">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-3 bg-gradient-gold rounded-xl shadow-lg">
+              <Video className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-navy-900 dark:text-white">
+                Video Generator
+              </h1>
+              <p className="text-navy-600 dark:text-navy-300">
+                Transform your product images into engaging marketing videos with AI
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* LEFT SIDE - Input Form */}
-        <div className="space-y-6 animate-slide-in-left">
-          {/* Image Upload Zone */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Source Image</h3>
-
-              {/* Upload Area */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
-              >
-                {imagePreview ? (
-                  <div className="space-y-4">
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="max-h-48 mx-auto rounded-lg object-cover"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Click to change image
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <Upload className="w-12 h-12 mx-auto text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Click to upload image</p>
-                      <p className="text-sm text-muted-foreground">
-                        PNG, JPG up to 10MB
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+          {/* LEFT SIDE - Input */}
+          <div className="space-y-6 animate-slide-in-left">
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Source Image</h3>
+                
+                <div
+                  onClick={() => !previewUrl && fileInputRef.current?.click()}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                    previewUrl 
+                      ? 'border-gold-300 bg-gold-50 dark:bg-gold-900/10' 
+                      : 'border-navy-200 hover:border-gold-300 dark:border-navy-700'
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  
+                  {previewUrl ? (
+                    <div className="relative aspect-square rounded-lg overflow-hidden">
+                      <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveFile(); }}
+                        className="absolute top-2 right-2"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="py-8">
+                      <Upload className="w-10 h-10 mx-auto mb-2 text-navy-400" />
+                      <p className="text-navy-900 dark:text-white font-medium text-sm">
+                        Click or drag to upload
+                      </p>
+                      <p className="text-xs text-navy-600 dark:text-navy-400 mt-1">
+                        JPG, PNG or GIF (max. 5MB)
                       </p>
                     </div>
-                  </div>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-
-              {/* Sample Images */}
-              <div className="mt-6">
-                <p className="text-sm font-medium mb-3">Or choose a sample:</p>
-                <div className="grid grid-cols-4 gap-3">
-                  {sampleImages.map((sample) => (
-                    <div
-                      key={sample.url}
-                      onClick={() => handleSampleSelect(sample.url)}
-                      className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${imageUrl === sample.url
-                        ? 'border-primary ring-2 ring-primary/20'
-                        : 'border-transparent'
-                        }`}
-                    >
-                      <img
-                        src={sample.url}
-                        alt={sample.name}
-                        className="w-full h-20 object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                        <ImageIcon className="w-6 h-6 text-white" />
-                      </div>
-                    </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Motion Style Selector */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Motion Style</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {motionStyles.map((style) => {
-                  const IconComponent = style.icon;
-                  return (
-                    <Card
-                      key={style.id}
-                      onClick={() => setSelectedMotion(style.id)}
-                      className={`cursor-pointer transition-all hover:shadow-md ${selectedMotion === style.id
-                        ? 'border-2 border-primary ring-2 ring-primary/20'
-                        : 'border-2 border-transparent'
+                <div className="mt-4">
+                  <p className="text-sm text-navy-600 dark:text-navy-400 mb-3">
+                    {previewUrl ? 'Or choose a different sample:' : 'Or choose a sample:'}
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {sampleImages.map((img, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSampleSelect(img)}
+                        className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                          previewUrl === img
+                            ? 'border-gold-500 ring-2 ring-gold-300'
+                            : 'border-navy-200 hover:border-gold-300 dark:border-navy-700'
                         }`}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <IconComponent className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm mb-1">
-                              {style.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {style.description}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Duration Selector */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Duration</h3>
-              <div className="flex gap-3">
-                <Button
-                  variant={duration === 15 ? 'default' : 'outline'}
-                  onClick={() => setDuration(15)}
-                  className="flex-1"
-                >
-                  15 seconds
-                </Button>
-                <Button
-                  variant={duration === 30 ? 'default' : 'outline'}
-                  onClick={() => setDuration(30)}
-                  className="flex-1"
-                >
-                  30 seconds
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Generate Button */}
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating || !imageUrl}
-            className="w-full h-12 text-base"
-            size="lg"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Generating... {progress}%
-              </>
-            ) : (
-              <>
-                <Video className="w-5 h-5 mr-2" />
-                Create Video
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* RIGHT SIDE - Preview */}
-        <div className="lg:sticky lg:top-8 h-fit animate-slide-in-right">
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Preview</h3>
-
-              {isGenerating ? (
-                // Loading State
-                <div className="space-y-4">
-                  <Skeleton className="w-full aspect-video rounded-lg" />
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Generating video...</span>
-                      <span className="font-medium">{progress}%</span>
-                    </div>
-                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Processing with {motionStyles.find(s => s.id === selectedMotion)?.name} effect</span>
+                      >
+                        <img src={img} alt={`Sample ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ) : generatedVideo ? (
-                // Video Player
-                <div className="space-y-4">
-                  <div className="relative rounded-lg overflow-hidden bg-black group">
-                    <video
-                      ref={videoRef}
-                      src={generatedVideo.videoUrl}
-                      poster={generatedVideo.thumbnailUrl}
-                      className="w-full aspect-video"
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
-                      onEnded={() => setIsPlaying(false)}
-                      controls
-                    />
+              </CardContent>
+            </Card>
 
-                    {/* Play/Pause Overlay */}
-                    <div
-                      onClick={togglePlay}
-                      className="absolute inset-0 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity bg-black/30"
-                    >
-                      {isPlaying ? (
-                        <Pause className="w-16 h-16 text-white" />
-                      ) : (
-                        <Play className="w-16 h-16 text-white" />
-                      )}
-                    </div>
+            {/* ✅ UPDATED: Video Description dengan Enhance Button */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-gold-500" />
+                    <h3 className="text-lg font-semibold">Video Description (Optional)</h3>
                   </div>
-
-                  {/* Video Info */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Generated Video</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary">
-                          {motionStyles.find(s => s.id === selectedMotion)?.name}
-                        </Badge>
-                        <Badge variant="outline">{duration}s</Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Download Button */}
                   <Button
-                    onClick={handleDownload}
+                    onClick={handleEnhancePrompt}
+                    disabled={isEnhancing || !videoPrompt.trim()}
                     variant="outline"
-                    className="w-full"
+                    size="sm"
+                    className="border-gold-300 text-gold-700 hover:bg-gold-50 dark:border-gold-600 dark:text-gold-400"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Video
+                    {isEnhancing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Enhancing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Enhance
+                      </>
+                    )}
                   </Button>
                 </div>
-              ) : (
-                // Empty State
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                    <Video className="w-8 h-8 text-primary" />
-                  </div>
-                  <p className="font-medium mb-2">Your video preview will appear here</p>
-                  <p className="text-sm text-muted-foreground max-w-sm">
-                    Upload an image, select a motion style, and click Generate to create your video
-                  </p>
+                <Textarea
+                  value={videoPrompt}
+                  onChange={(e) => setVideoPrompt(e.target.value)}
+                  placeholder="Describe how you want the video to look... (e.g., 'Product rotating slowly with dramatic lighting')"
+                  className="min-h-[100px] resize-none"
+                  maxLength={500}
+                />
+                <p className="text-xs text-navy-600 dark:text-navy-400 mt-2">
+                  Leave empty for automatic generation based on the image
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Motion Style</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {motionStyles.map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => setMotionStyle(style.id)}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        motionStyle === style.id
+                          ? 'border-gold-500 bg-gold-50 dark:bg-gold-900/20 shadow-lg'
+                          : 'border-navy-200 dark:border-navy-700 hover:border-gold-300'
+                      }`}
+                    >
+                      <div className="text-2xl mb-2">{style.icon}</div>
+                      <div className="font-semibold text-sm">{style.name}</div>
+                      <div className="text-xs text-navy-600 dark:text-navy-400">{style.desc}</div>
+                    </button>
+                  ))}
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Duration: {duration}s</h3>
+                <input
+                  type="range"
+                  min="3"
+                  max="10"
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  className="w-full accent-gold-500"
+                />
+                <div className="flex justify-between text-xs text-navy-600 dark:text-navy-400 mt-2">
+                  <span>3s</span><span>10s</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || !previewUrl}
+              className="w-full h-14 text-lg font-semibold bg-gradient-gold hover:opacity-90 text-white shadow-lg disabled:opacity-50"
+            >
+              {isGenerating ? (
+                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Generating... {progress}%</>
+              ) : (
+                <><Video className="w-5 h-5 mr-2" /> Generate Video</>
               )}
-            </CardContent>
-          </Card>
+            </Button>
+          </div>
+
+          {/* RIGHT SIDE - Preview */}
+          <div className="animate-slide-in-right">
+            <Card className="min-h-[600px]">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Preview</h3>
+
+                {isGenerating ? (
+                  <div className="space-y-4">
+                    <Skeleton className="w-full aspect-video rounded-lg" />
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Generating video...</span>
+                        <span className="font-medium">{progress}%</span>
+                      </div>
+                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div className="h-full bg-gold-500 transition-all" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ) : generatedVideo ? (
+                  <div className="space-y-4">
+                    <div className="relative rounded-lg overflow-hidden bg-black group">
+                      <video
+                        ref={videoRef}
+                        src={generatedVideo.videoUrl}
+                        poster={generatedVideo.thumbnailUrl}
+                        className="w-full aspect-video"
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                        onEnded={() => setIsPlaying(false)}
+                        controls
+                      />
+                      <div
+                        onClick={togglePlay}
+                        className="absolute inset-0 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity bg-black/30"
+                      >
+                        {isPlaying ? <Pause className="w-16 h-16 text-white" /> : <Play className="w-16 h-16 text-white" />}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Generated Video</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary">{motionStyle}</Badge>
+                          <Badge variant="outline">{duration}s</Badge>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => setShowPreviewDialog(true)}>
+                        <Maximize2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <Button onClick={handleDownload} variant="outline" className="w-full">
+                      <Download className="w-4 h-4 mr-2" /> Download Video
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="w-16 h-16 rounded-full bg-gold-100 flex items-center justify-center mb-4">
+                      <Video className="w-8 h-8 text-gold-600" />
+                    </div>
+                    <p className="font-medium mb-2">Your video will appear here</p>
+                    <p className="text-sm text-muted-foreground max-w-sm">
+                      Upload an image and click Generate to create your video
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
+
+      {/* ✅ NEW: Enhance Prompt Dialog */}
+      <Dialog open={showEnhanceDialog} onOpenChange={setShowEnhanceDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-navy-900 dark:text-white">
+              <Sparkles className="w-5 h-5 text-gold-500" />
+              Enhanced Video Prompt
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            {/* Original Prompt */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-navy-700 dark:text-navy-300">
+                Original Prompt
+              </label>
+              <div className="p-4 rounded-lg bg-navy-50 dark:bg-navy-800 border border-navy-200 dark:border-navy-700">
+                <p className="text-navy-900 dark:text-white">{videoPrompt}</p>
+              </div>
+            </div>
+
+            {/* Enhanced Prompt */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gold-700 dark:text-gold-400">
+                Enhanced Prompt
+              </label>
+              <div className="p-4 rounded-lg bg-gold-50 dark:bg-gold-900/20 border-2 border-gold-300 dark:border-gold-600">
+                <p className="text-navy-900 dark:text-white">{enhancedPrompt}</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <DialogFooter className="flex gap-3 pt-4">
+              <Button
+                onClick={handleApplyEnhanced}
+                className="flex-1 bg-gradient-gold text-white hover:opacity-90"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Apply Enhanced
+              </Button>
+              <Button
+                onClick={handleKeepOriginal}
+                variant="outline"
+                className="flex-1 border-navy-300 dark:border-navy-600"
+              >
+                Keep Original
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Video Preview</DialogTitle>
+          </DialogHeader>
+          {generatedVideo && (
+            <video
+              src={generatedVideo.videoUrl}
+              controls
+              autoPlay
+              className="w-full rounded-lg"
+            />
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>Close</Button>
+            <Button onClick={handleDownload}><Download className="w-4 h-4 mr-2" /> Download</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

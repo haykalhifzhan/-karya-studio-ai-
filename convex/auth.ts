@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, QueryCtx } from "./_generated/server";
+import { Id } from "./_generated/dataModel";  // ✅ IMPORT Id type
 
 export const clerkConfig = {
     issuer: process.env.CLERK_JWT_ISSUER_DOMAIN,
@@ -16,7 +17,7 @@ export const createUser = mutation({
     handler: async (ctx, args) => {
         const existing = await ctx.db
             .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+            .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", args.clerkId))
             .unique();
 
         if (existing) return existing._id;
@@ -46,16 +47,17 @@ export const createUser = mutation({
     },
 });
 
-export const getAuthUserId = async (ctx) => {
+// ✅ FIXED: Return type Id<"users"> | null
+export const getAuthUserId = async (ctx: QueryCtx): Promise<Id<"users"> | null> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
 
     const user = await ctx.db
         .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+        .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
         .unique();
 
-    return user?._id || null;
+    return user?._id ?? null;  // user._id is already Id<"users">
 };
 
 // Get current user by clerkId
@@ -64,7 +66,7 @@ export const getCurrentUser = query({
     handler: async (ctx, { clerkId }) => {
         return await ctx.db
             .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+            .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", clerkId))
             .unique();
     },
 });
@@ -75,19 +77,19 @@ export const getUserWithStats = query({
     handler: async (ctx, { clerkId }) => {
         const user = await ctx.db
             .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+            .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", clerkId))
             .unique();
 
         if (!user) return null;
 
         const stats = await ctx.db
             .query("userStats")
-            .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+            .withIndex("by_user_id", (q: any) => q.eq("userId", user._id))
             .unique();
 
         const achievements = await ctx.db
             .query("achievements")
-            .withIndex("by_user_id", (q) => q.eq("userId", user._id))
+            .withIndex("by_user_id", (q: any) => q.eq("userId", user._id))
             .collect();
 
         return { ...user, stats, achievements };
@@ -107,7 +109,7 @@ export const updateUser = mutation({
     handler: async (ctx, { clerkId, updates }) => {
         const user = await ctx.db
             .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+            .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", clerkId))
             .unique();
 
         if (!user) throw new Error("User not found");
@@ -127,10 +129,10 @@ export const completeOnboarding = mutation({
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Not authenticated");
 
-        const user = await ctx.db.get(userId);
+        const user = await ctx.db.get(userId);  // ✅ userId is Id<"users"> now
         if (!user) throw new Error("User not found");
 
-        await ctx.db.patch(userId, {
+        await ctx.db.patch(userId, {  // ✅ userId is Id<"users"> now
             onboardingCompleted: true,
             updatedAt: Date.now(),
         });

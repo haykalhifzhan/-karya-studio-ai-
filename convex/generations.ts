@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, MutationCtx } from "./_generated/server";
+import { Id } from "./_generated/dataModel";  // ✅ IMPORT Id type
 import { getAuthUserId } from "./auth";
 
 // Get user's generation history
@@ -13,7 +14,7 @@ export const getHistory = query({
 
         const generations = await ctx.db
             .query("generations")
-            .withIndex("by_user_id", (q) => q.eq("userId", userId))
+            .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
             .order("desc")
             .take(limit);
 
@@ -32,7 +33,7 @@ export const getRecent = query({
 
         const generations = await ctx.db
             .query("generations")
-            .withIndex("by_user_id", (q) => q.eq("userId", userId))
+            .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
             .order("desc")
             .take(limit);
 
@@ -53,12 +54,12 @@ export const create = mutation({
         batchMode: v.optional(v.boolean()),
         templateId: v.optional(v.string()),
     },
-    handler: async (ctx, args) => {
+    handler: async (ctx: MutationCtx, args) => {
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Not authenticated");
 
         const generationId = await ctx.db.insert("generations", {
-            userId,
+            userId,  // ✅ userId is Id<"users"> from getAuthUserId
             type: args.type,
             prompt: args.prompt,
             style: args.style,
@@ -68,10 +69,10 @@ export const create = mutation({
             createdAt: Date.now(),
         });
 
-        // Update user stats
-        const user = await ctx.db.get(userId);
+        // Update user
+        const user = await ctx.db.get(userId);  // ✅ userId is Id<"users">
         if (user) {
-            await ctx.db.patch(userId, {
+            await ctx.db.patch(userId, {  // ✅ userId is Id<"users">
                 updatedAt: Date.now(),
             });
         }
@@ -79,22 +80,25 @@ export const create = mutation({
         // Update stats
         const stats = await ctx.db
             .query("userStats")
-            .withIndex("by_user_id", (q) => q.eq("userId", userId))
+            .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
             .unique();
 
         if (stats) {
-            const updates: any = {
-                totalGenerations: stats.totalGenerations + 1,
+            const updates: Record<string, any> = {
+                totalGenerations: (stats.totalGenerations ?? 0) + 1,
             };
 
             if (args.type === "photo") {
-                updates.totalPhotos = stats.totalPhotos + 1;
+                updates.totalPhotos = (stats.totalPhotos ?? 0) + 1;
             } else {
-                updates.totalVideos = stats.totalVideos + 1;
+                updates.totalVideos = (stats.totalVideos ?? 0) + 1;
             }
 
-            if (args.templateId && !stats.templatesUsed.includes(args.templateId)) {
-                updates.templatesUsed = [...stats.templatesUsed, args.templateId];
+            if (args.templateId) {
+                const templatesUsed = stats.templatesUsed ?? [];
+                if (!templatesUsed.includes(args.templateId)) {
+                    updates.templatesUsed = [...templatesUsed, args.templateId];
+                }
             }
 
             await ctx.db.patch(stats._id, updates);
@@ -157,13 +161,14 @@ export const toggleFavorite = mutation({
         // Update favorites count in stats
         const stats = await ctx.db
             .query("userStats")
-            .withIndex("by_user_id", (q) => q.eq("userId", userId))
+            .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
             .unique();
 
         if (stats) {
+            const currentCount = stats.favoritesCount ?? 0;
             const newCount = generation.isFavorite
-                ? Math.max(0, stats.favoritesCount - 1)
-                : stats.favoritesCount + 1;
+                ? Math.max(0, currentCount - 1)
+                : currentCount + 1;
 
             await ctx.db.patch(stats._id, { favoritesCount: newCount });
         }

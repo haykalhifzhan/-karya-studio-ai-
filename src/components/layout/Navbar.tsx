@@ -2,24 +2,27 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, Sparkles, Bell } from 'lucide-react';
+import { Menu, Sparkles, Bell, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from './ThemeToggle';
+import { LanguageSwitcher } from '@/components/language-switcher';  // ✅ Import LanguageSwitcher
 import { useAppStore } from '@/stores/appStore';
 import { useUserStore } from '@/stores/userStore';
+import { useLanguage } from '@/contexts/LanguageContext';  // ✅ Import useLanguage
 
 export function Navbar() {
   const pathname = usePathname();
   const { toggleSidebar } = useAppStore();
   const { user } = useUserStore();
+  const { t, language } = useLanguage();  // ✅ Ambil translation function
 
   const getPageTitle = () => {
-    if (pathname === '/dashboard') return 'Dashboard';
-    if (pathname === '/generate/photo') return 'Photo Generator';
-    if (pathname === '/generate/video') return 'Video Generator';
-    if (pathname === '/templates') return 'Templates';
-    if (pathname === '/gallery') return 'Gallery';
-    if (pathname === '/achievements') return 'Achievements';
+    if (pathname === '/dashboard') return language === 'id' ? 'Dashboard' : 'Dashboard';
+    if (pathname === '/generate/photo') return language === 'id' ? 'Generator Foto' : 'Photo Generator';
+    if (pathname === '/generate/video') return language === 'id' ? 'Generator Video' : 'Video Generator';
+    if (pathname === '/templates') return language === 'id' ? 'Template' : 'Templates';
+    if (pathname === '/gallery') return language === 'id' ? 'Galeri' : 'Gallery';
+    if (pathname === '/achievements') return language === 'id' ? 'Pencapaian' : 'Achievements';
     return 'KaryaStudio AI';
   };
 
@@ -38,11 +41,19 @@ export function Navbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Notifications */}
         <Button variant="ghost" size="icon" className="h-9 w-9 relative">
           <Bell className="h-4 w-4" />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-gold-400" />
         </Button>
+        
+        {/* ✅ Language Switcher - Tambah di sini */}
+        <LanguageSwitcher />
+        
+        {/* Dark Mode Toggle */}
         <ThemeToggle />
+        
+        {/* User Profile */}
         <div className="hidden sm:flex items-center gap-2 rounded-lg border border-border px-3 py-1.5">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
             {user?.name?.charAt(0)?.toUpperCase() || 'U'}

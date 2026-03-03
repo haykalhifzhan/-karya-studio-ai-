@@ -1,124 +1,242 @@
-import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
 import { getAuthUserId } from "./auth";
-import { achievements as allAchievements } from "@/lib/constants";
 
-// Get all achievements with progress
+// ✅ ACHIEVEMENTS DATA - Hardcoded di sini (tidak perlu import)
+const allAchievements = [
+  {
+    id: "first-generation",
+    name: "First Steps",
+    description: "Create your first generation",
+    threshold: 1,
+    rarity: "bronze" as const,
+    criteria: "Generate 1 items",
+  },
+  {
+    id: "ten-generations",
+    name: "Getting Started",
+    description: "Create 10 generations",
+    threshold: 10,
+    rarity: "bronze" as const,
+    criteria: "Generate 10 items",
+  },
+  {
+    id: "fifty-generations",
+    name: "Prolific Creator",
+    description: "Create 50 generations",
+    threshold: 50,
+    rarity: "silver" as const,
+    criteria: "Generate 50 items",
+  },
+  {
+    id: "hundred-generations",
+    name: "Master Creator",
+    description: "Create 100 generations",
+    threshold: 100,
+    rarity: "gold" as const,
+    criteria: "Generate 100 items",
+  },
+  {
+    id: "first-photo",
+    name: "Photographer",
+    description: "Create your first photo",
+    threshold: 1,
+    rarity: "bronze" as const,
+    criteria: "Generate 1 photo",
+  },
+  {
+    id: "twenty-five-photos",
+    name: "Photo Enthusiast",
+    description: "Create 25 photos",
+    threshold: 25,
+    rarity: "silver" as const,
+    criteria: "Generate 25 photos",
+  },
+  {
+    id: "first-video",
+    name: "Videographer",
+    description: "Create your first video",
+    threshold: 1,
+    rarity: "bronze" as const,
+    criteria: "Generate 1 video",
+  },
+  {
+    id: "ten-videos",
+    name: "Video Producer",
+    description: "Create 10 videos",
+    threshold: 10,
+    rarity: "silver" as const,
+    criteria: "Generate 10 videos",
+  },
+  {
+    id: "first-step",
+    name: "Welcome Aboard",
+    description: "Complete onboarding",
+    threshold: 1,
+    rarity: "bronze" as const,
+    criteria: "Complete onboarding",
+  },
+];
+
+// ✅ GET ALL ACHIEVEMENTS WITH PROGRESS
 export const getAllWithProgress = query({
-    handler: async (ctx) => {
-        const userId = await getAuthUserId(ctx);
-        if (!userId) return [];
+  args: {},
+  handler: async (ctx) => {
+    try {
+      const clerkUserId = await getAuthUserId(ctx);
+      if (!clerkUserId) {
+        console.log('⚠️ No authenticated user');
+        return [];
+      }
 
-        const user = await ctx.db.get(userId);
-        const stats = await ctx.db
-            .query("userStats")
-            .withIndex("by_user_id", (q) => q.eq("userId", userId))
-            .unique();
+      // Find user by Clerk ID
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkUserId))
+        .unique();
 
-        const unlocked = await ctx.db
-            .query("achievements")
-            .withIndex("by_user_id", (q) => q.eq("userId", userId))
-            .collect();
+      if (!user) {
+        console.log('⚠️ User not found for clerkId:', clerkUserId);
+        return [];
+      }
 
-        const unlockedIds = new Set(unlocked.map(u => u.achievementId));
+      const userId = user._id;
 
-        return allAchievements.map(achievement => {
-            const isUnlocked = unlockedIds.has(achievement.id);
-            let currentProgress = 0;
+      // Get user stats
+      const stats = await ctx.db
+        .query("userStats")
+        .withIndex("by_user_id", (q) => q.eq("userId", userId))
+        .unique();
 
-            // Calculate progress based on criteria
-            if (stats) {
-                if (achievement.criteria.includes('Generate') && achievement.criteria.includes('photo')) {
-                    currentProgress = stats.totalPhotos;
-                } else if (achievement.criteria.includes('Generate') && achievement.criteria.includes('video')) {
-                    currentProgress = stats.totalVideos;
-                } else if (achievement.criteria.includes('Complete 1 batch')) {
-                    currentProgress = stats.batchesCompleted;
-                } else if (achievement.criteria.includes('Generate') && achievement.criteria.includes('items')) {
-                    currentProgress = stats.totalGenerations;
-                } else if (achievement.criteria.includes('Use') && achievement.criteria.includes('templates')) {
-                    currentProgress = stats.templatesUsed.length;
-                } else if (achievement.criteria.includes('Enhance') && achievement.criteria.includes('prompts')) {
-                    currentProgress = stats.totalEnhancements;
-                } else if (achievement.criteria.includes('Save') && achievement.criteria.includes('favorites')) {
-                    currentProgress = stats.favoritesCount;
-                } else if (achievement.criteria === 'Complete onboarding') {
-                    currentProgress = user?.onboardingCompleted ? 1 : 0;
-                }
-            }
+      // Get unlocked achievements
+      const unlocked = await ctx.db
+        .query("achievements")
+        .withIndex("by_user_id", (q) => q.eq("userId", userId))
+        .collect();
 
-            const progressPercent = Math.min((currentProgress / achievement.threshold) * 100, 100);
+      const unlockedIds = new Set(unlocked.map((u: any) => u.achievementId));
 
-            return {
-                ...achievement,
-                isUnlocked,
-                currentProgress,
-                progressPercent,
-                remainingProgress: Math.max(achievement.threshold - currentProgress, 0),
-            };
-        });
-    },
-});
+      // Calculate progress for each achievement
+      return allAchievements.map((achievement) => {
+        const isUnlocked = unlockedIds.has(achievement.id);
+        let currentProgress = 0;
 
-// Unlock achievement
-export const unlock = mutation({
-    args: { achievementId: v.string() },
-    handler: async (ctx, args) => {
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("Not authenticated");
-
-        // Check if already unlocked
-        const existing = await ctx.db
-            .query("achievements")
-            .withIndex("by_user_achievement", (q) =>
-                q.eq("userId", userId).eq("achievementId", args.achievementId)
-            )
-            .unique();
-
-        if (existing) return existing._id;
-
-        const id = await ctx.db.insert("achievements", {
-            userId,
-            achievementId: args.achievementId,
-            unlockedAt: Date.now(),
-        });
-
-        return id;
-    },
-});
-
-// Complete onboarding dan unlock achievement
-export const completeOnboardingAndUnlock = mutation({
-    handler: async (ctx) => {
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("Not authenticated");
-
-        const user = await ctx.db.get(userId);
-        if (!user) throw new Error("User not found");
-
-        // Update onboarding status
-        await ctx.db.patch(userId, {
-            onboardingCompleted: true,
-            updatedAt: Date.now(),
-        });
-
-        // Unlock first-step achievement kalau belum
-        const existing = await ctx.db
-            .query("achievements")
-            .withIndex("by_user_achievement", (q) =>
-                q.eq("userId", userId).eq("achievementId", "first-step")
-            )
-            .unique();
-
-        let achievementId = null;
-        if (!existing) {
-            achievementId = await ctx.db.insert("achievements", {
-                userId,
-                achievementId: "first-step",
-                unlockedAt: Date.now(),
-            });
+        if (stats) {
+          const criteria = achievement.criteria || '';
+          
+          if (criteria.includes('Generate') && criteria.includes('photo')) {
+            currentProgress = stats.totalPhotos || 0;
+          } else if (criteria.includes('Generate') && criteria.includes('video')) {
+            currentProgress = stats.totalVideos || 0;
+          } else if (criteria.includes('Generate') && criteria.includes('items')) {
+            currentProgress = stats.totalGenerations || 0;
+          } else if (criteria.includes('Complete onboarding')) {
+            currentProgress = user?.onboardingCompleted ? 1 : 0;
+          }
         }
 
-        return { success: true, achievementId };
-    },
+        const threshold = achievement.threshold || 1;
+        const progressPercent = Math.min((currentProgress / threshold) * 100, 100);
+
+        return {
+          ...achievement,
+          isUnlocked,
+          currentProgress,
+          progressPercent: Math.round(progressPercent * 100) / 100,
+          remainingProgress: Math.max(threshold - currentProgress, 0),
+        };
+      });
+
+    } catch (error) {
+      console.error('❌ Error in getAllWithProgress:', error);
+      return [];
+    }
+  },
+});
+
+// ✅ UNLOCK ACHIEVEMENT
+export const unlock = mutation({
+  args: { achievementId: v.string() },
+  handler: async (ctx, args) => {
+    try {
+      const clerkUserId = await getAuthUserId(ctx);
+      if (!clerkUserId) throw new Error("Not authenticated");
+
+      // Find user by Clerk ID
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkUserId))
+        .unique();
+
+      if (!user) throw new Error("User not found");
+
+      // Check if already unlocked
+      const existing = await ctx.db
+        .query("achievements")
+        .withIndex("by_user_achievement", (q) =>
+          q.eq("userId", user._id).eq("achievementId", args.achievementId)
+        )
+        .unique();
+
+      if (existing) return existing._id;
+
+      // Insert new achievement
+      const id = await ctx.db.insert("achievements", {
+        userId: user._id,
+        achievementId: args.achievementId,
+        unlockedAt: Date.now(),
+      });
+
+      return id;
+    } catch (error) {
+      console.error('❌ Error unlocking achievement:', error);
+      throw error;
+    }
+  },
+});
+
+// ✅ COMPLETE ONBOARDING AND UNLOCK
+export const completeOnboardingAndUnlock = mutation({
+  handler: async (ctx) => {
+    try {
+      const clerkUserId = await getAuthUserId(ctx);
+      if (!clerkUserId) throw new Error("Not authenticated");
+
+      // Find user by Clerk ID
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkUserId))
+        .unique();
+
+      if (!user) throw new Error("User not found");
+
+      // Update onboarding status
+      await ctx.db.patch(user._id, {
+        onboardingCompleted: true,
+        updatedAt: Date.now(),
+      });
+
+      // Check if achievement already unlocked
+      const existing = await ctx.db
+        .query("achievements")
+        .withIndex("by_user_achievement", (q) =>
+          q.eq("userId", user._id).eq("achievementId", "first-step")
+        )
+        .unique();
+
+      let achievementId = null;
+      if (!existing) {
+        achievementId = await ctx.db.insert("achievements", {
+          userId: user._id,
+          achievementId: "first-step",
+          unlockedAt: Date.now(),
+        });
+      }
+
+      return { success: true, achievementId };
+    } catch (error) {
+      console.error('❌ Error completing onboarding:', error);
+      throw error;
+    }
+  },
 });

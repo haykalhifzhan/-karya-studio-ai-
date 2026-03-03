@@ -7,7 +7,7 @@ export default defineSchema({
         email: v.string(),
         name: v.string(),
         avatar: v.optional(v.string()),
-        onboardingCompleted: v.boolean(),
+        onboardingCompleted: v.optional(v.boolean()),  // ✅ FIX: Optional
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -16,13 +16,14 @@ export default defineSchema({
 
     userStats: defineTable({
         userId: v.id("users"),
-        totalGenerations: v.number(),
-        totalPhotos: v.number(),
-        totalVideos: v.number(),
-        totalEnhancements: v.number(),
-        templatesUsed: v.array(v.string()),
-        favoritesCount: v.number(),
-        batchesCompleted: v.number(),
+        // ✅ FIX: Semua stats optional (karena di-init setelah user create)
+        totalGenerations: v.optional(v.number()),
+        totalPhotos: v.optional(v.number()),
+        totalVideos: v.optional(v.number()),
+        totalEnhancements: v.optional(v.number()),
+        templatesUsed: v.optional(v.array(v.string())),
+        favoritesCount: v.optional(v.number()),
+        batchesCompleted: v.optional(v.number()),
     }).index("by_user_id", ["userId"]),
 
     generations: defineTable({
@@ -41,7 +42,7 @@ export default defineSchema({
         thumbnailUrl: v.optional(v.string()),
         videoUrl: v.optional(v.string()),
         templateId: v.optional(v.string()),
-        isFavorite: v.boolean(),
+        isFavorite: v.optional(v.boolean()),  // ✅ FIX: Optional
         createdAt: v.number(),
     })
         .index("by_user_id", ["userId"])

@@ -1,17 +1,23 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
+import { useState, useRef } from 'react';
+import { Camera, Sparkles, Download, Heart, Loader2, Image as ImageIcon, Aperture, Sun, Crown, Smile, Upload, X, LayoutTemplate, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useGenerationStore } from '@/stores/generationStore';
-import { useUserStore } from '@/stores/userStore';
-import type { PhotoStyle } from '@/types';
-import { Aperture, Camera, Crown, Download, Heart, Image as ImageIcon, Loader2, Smile, Sparkles, Sun } from 'lucide-react';
-import { useState } from 'react';
 import { toast } from 'sonner';
+import type { PhotoStyle, Generation } from '@/types';
 
 interface StyleOption {
   id: PhotoStyle;
@@ -47,9 +53,48 @@ const STYLE_OPTIONS: StyleOption[] = [
   },
 ];
 
+const SIZE_OPTIONS = [
+  { 
+    label: 'Square (1:1)', 
+    value: '1024x1024', 
+    actualSize: '1328*1328',
+    desc: 'Instagram post, product showcase',
+    icon: '📦'
+  },
+  { 
+    label: 'Landscape (16:9)', 
+    value: '1664x928', 
+    actualSize: '1664*928',
+    desc: 'Banner, video thumbnail',
+    icon: '🖼️'
+  },
+  { 
+    label: 'Standard (4:3)', 
+    value: '1472x1104', 
+    actualSize: '1472*1104',
+    desc: 'Classic photo ratio',
+    icon: '📐'
+  },
+  { 
+    label: 'Portrait (3:4)', 
+    value: '1104x1472', 
+    actualSize: '1104*1472',
+    desc: 'Product portrait, Pinterest',
+    icon: '📱'
+  },
+  { 
+    label: 'Vertical (9:16)', 
+    value: '928x1664', 
+    actualSize: '928*1664',
+    desc: 'Story, Reels, TikTok',
+    icon: '🎬'
+  },
+];
+
 export default function PhotoGeneratorPage() {
   const [prompt, setPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<PhotoStyle>('studio');
+  const [selectedSize, setSelectedSize] = useState('1024x1024');
   const [variations, setVariations] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -58,12 +103,71 @@ export default function PhotoGeneratorPage() {
   const [enhancedPrompt, setEnhancedPrompt] = useState('');
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
+  
+  // ✅ NEW: Preview Dialog State
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number>(0);
+  
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addGeneration = useGenerationStore((state) => state.addGeneration);
-  const incrementStat = useUserStore((state) => state.incrementStat);
 
   const maxChars = 500;
   const charCount = prompt.length;
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file (JPG, PNG, GIF)');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
+        return;
+      }
+      setUploadedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      toast.success('Reference image uploaded');
+    }
+  };
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please drop an image file (JPG, PNG, GIF)');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
+        return;
+      }
+      setUploadedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      toast.success('Reference image uploaded');
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleEnhancePrompt = async () => {
     if (!prompt.trim()) {
@@ -116,18 +220,18 @@ export default function PhotoGeneratorPage() {
     setGenerationProgress(0);
     setResults([]);
 
-    // Simulate progress
     const progressInterval = setInterval(() => {
       setGenerationProgress((prev) => {
-        if (prev >= 100) {
+        if (prev >= 90) {
           clearInterval(progressInterval);
-          return 100;
+          return 90;
         }
-        return prev + (100 / 30); // 3 seconds total
+        return prev + (90 / 30);
       });
     }, 100);
 
     try {
+      console.log('📤 Sending request to /api/generate/photo...');
       const response = await fetch('/api/generate/photo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -135,43 +239,72 @@ export default function PhotoGeneratorPage() {
           prompt,
           style: selectedStyle,
           variations,
+          size: selectedSize,
         }),
       });
 
+      console.log('📥 Response status:', response.status);
       const data = await response.json();
+      console.log('📥 Response data:', data);
 
       if (data.success) {
         clearInterval(progressInterval);
         setGenerationProgress(100);
         
-        // Add to store
-        addGeneration(data.generation);
+        console.log('✅ Generation successful!');
+        console.log('Result URLs:', data.generation?.resultUrls);
         
-        // Update stats
-        incrementStat('totalPhotos');
-        incrementStat('totalGenerations');
+        if (data.generation) {
+          addGeneration(data.generation);
+        }
         
-        // Set results
-        setResults(data.generation.resultUrls || []);
-        
-        toast.success('Photos generated successfully!');
+        const resultUrls = data.generation?.resultUrls || [];
+        if (resultUrls.length > 0) {
+          setResults(resultUrls);
+          toast.success(`Generated ${resultUrls.length} photo(s) successfully!`);
+        } else {
+          toast.warning('No images were generated. Try a different prompt.');
+          setResults([]);
+        }
       } else {
         clearInterval(progressInterval);
-        toast.error('Failed to generate photos');
+        console.error('❌ Generation failed:', data.message);
+        toast.error(data.message || 'Failed to generate photos', {
+          description: data.hint || data.error || '',
+        });
+        setResults([]);
       }
     } catch (error) {
       clearInterval(progressInterval);
-      console.error('Generation error:', error);
-      toast.error('Error generating photos');
+      console.error('❌ Generation error:', error);
+      toast.error('Error generating photos', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      setResults([]);
     } finally {
       setIsGenerating(false);
       setTimeout(() => setGenerationProgress(0), 1000);
     }
   };
 
+  // ✅ NEW: Open Preview Dialog
+  const handlePreview = (imageUrl: string, index: number) => {
+    setPreviewImage(imageUrl);
+    setPreviewIndex(index);
+  };
+
   const handleDownload = async (imageUrl: string, index: number) => {
     try {
-      const response = await fetch(imageUrl);
+      const response = await fetch(imageUrl, {
+        method: 'GET',
+        headers: {},
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -181,10 +314,18 @@ export default function PhotoGeneratorPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success('Photo downloaded');
+      
+      toast.success('Photo downloaded successfully!');
     } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download photo');
+      console.error('Download error (method 1):', error);
+      
+      try {
+        window.open(imageUrl, '_blank');
+        toast.success('Photo opened in new tab. Right-click and save!');
+      } catch (fallbackError) {
+        console.error('Download error (method 2):', fallbackError);
+        toast.error('Failed to download. Try right-clicking and "Save Image As"');
+      }
     }
   };
 
@@ -202,10 +343,26 @@ export default function PhotoGeneratorPage() {
     });
   };
 
+  // ✅ NEW: Navigate preview
+  const handleNextPreview = () => {
+    if (results.length > 0) {
+      const nextIndex = (previewIndex + 1) % results.length;
+      setPreviewIndex(nextIndex);
+      setPreviewImage(results[nextIndex]);
+    }
+  };
+
+  const handlePrevPreview = () => {
+    if (results.length > 0) {
+      const prevIndex = (previewIndex - 1 + results.length) % results.length;
+      setPreviewIndex(prevIndex);
+      setPreviewImage(results[prevIndex]);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-navy-50 via-white to-gold-50 dark:from-navy-950 dark:via-navy-900 dark:to-navy-800 p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8 animate-fade-in-up">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-3 bg-gradient-gold rounded-xl shadow-lg">
@@ -222,13 +379,67 @@ export default function PhotoGeneratorPage() {
           </div>
         </div>
 
-        {/* Main Layout - Split on Desktop, Stacked on Mobile */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-          {/* LEFT SIDE - Input Form */}
           <div className="space-y-6 animate-slide-in-left">
             <Card className="border-navy-200 dark:border-navy-700 shadow-lg">
               <CardContent className="p-6 space-y-6">
-                {/* Product Description */}
+                
+                <div>
+                  <label className="text-sm font-semibold text-navy-900 dark:text-white mb-3 block">
+                    Reference Image (Optional)
+                  </label>
+                  <div
+                    onClick={() => !previewUrl && fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    className={`relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                      previewUrl 
+                        ? 'border-gold-300 bg-gold-50 dark:bg-gold-900/10' 
+                        : 'border-navy-200 hover:border-gold-300 dark:border-navy-700'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    
+                    {previewUrl ? (
+                      <div className="relative aspect-square rounded-lg overflow-hidden">
+                        <img
+                          src={previewUrl}
+                          alt="Reference"
+                          className="w-full h-full object-cover"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveFile();
+                          }}
+                          className="absolute top-2 right-2"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="py-8">
+                        <Upload className="w-10 h-10 mx-auto mb-2 text-navy-400" />
+                        <p className="text-navy-900 dark:text-white font-medium text-sm">
+                          Click or drag to upload reference
+                        </p>
+                        <p className="text-xs text-navy-600 dark:text-navy-400 mt-1">
+                          JPG, PNG or GIF (max. 5MB)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-semibold text-navy-900 dark:text-white">
@@ -244,12 +455,11 @@ export default function PhotoGeneratorPage() {
                   <Textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value.slice(0, maxChars))}
-                    placeholder="Describe your product in detail... (e.g., 'A premium leather handbag with gold accents, placed on a marble surface with soft lighting')"
-                    className="min-h-[150px] resize-none border-navy-200 dark:border-navy-700 focus:ring-gold-500 focus:border-gold-500"
+                    placeholder="Describe your product in detail..."
+                    className="min-h-[120px] resize-none border-navy-200 dark:border-navy-700 focus:ring-gold-500 focus:border-gold-500"
                     maxLength={maxChars}
                   />
                   
-                  {/* Prompt Enhancer Button */}
                   <div className="mt-3">
                     <Button
                       onClick={handleEnhancePrompt}
@@ -272,7 +482,35 @@ export default function PhotoGeneratorPage() {
                   </div>
                 </div>
 
-                {/* Style Selector */}
+                <div>
+                  <label className="text-sm font-semibold text-navy-900 dark:text-white mb-3 block">
+                    <div className="flex items-center gap-2">
+                      <LayoutTemplate className="w-4 h-4" />
+                      Image Size
+                    </div>
+                  </label>
+                  <Select value={selectedSize} onValueChange={setSelectedSize}>
+                    <SelectTrigger className="border-navy-200 dark:border-navy-700 focus:ring-gold-500 focus:border-gold-500">
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SIZE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <span>{option.icon}</span>
+                            <div>
+                              <div className="font-medium">{option.label}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {option.actualSize} • {option.desc}
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div>
                   <label className="text-sm font-semibold text-navy-900 dark:text-white mb-3 block">
                     Style
@@ -316,7 +554,6 @@ export default function PhotoGeneratorPage() {
                   </div>
                 </div>
 
-                {/* Variations Selector */}
                 <div>
                   <label className="text-sm font-semibold text-navy-900 dark:text-white mb-3 block">
                     Number of Variations
@@ -338,7 +575,6 @@ export default function PhotoGeneratorPage() {
                   </div>
                 </div>
 
-                {/* Generate Button */}
                 <div className="pt-2">
                   <Button
                     onClick={handleGenerate}
@@ -362,7 +598,6 @@ export default function PhotoGeneratorPage() {
             </Card>
           </div>
 
-          {/* RIGHT SIDE - Results */}
           <div className="animate-slide-in-right">
             <Card className="border-navy-200 dark:border-navy-700 shadow-lg min-h-[600px]">
               <CardContent className="p-6">
@@ -370,7 +605,6 @@ export default function PhotoGeneratorPage() {
                   Generated Photos
                 </h2>
 
-                {/* Loading State */}
                 {isGenerating && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {Array.from({ length: variations }).map((_, i) => (
@@ -382,7 +616,6 @@ export default function PhotoGeneratorPage() {
                   </div>
                 )}
 
-                {/* Results Grid */}
                 {!isGenerating && results.length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {results.map((imageUrl, index) => (
@@ -391,41 +624,32 @@ export default function PhotoGeneratorPage() {
                         className="group relative rounded-xl overflow-hidden border-2 border-navy-200 dark:border-navy-700 hover:border-gold-500 dark:hover:border-gold-500 transition-all duration-300 hover:shadow-xl animate-scale-in"
                         style={{ animationDelay: `${index * 100}ms` }}
                       >
-                        {/* Image */}
                         <div className="aspect-square bg-navy-100 dark:bg-navy-800">
                           <img
                             src={imageUrl}
                             alt={`Generated photo ${index + 1}`}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                           />
                         </div>
 
-                        {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-navy-900/90 via-navy-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <div className="absolute bottom-0 left-0 right-0 p-4 flex items-center justify-between">
                             <Button
                               size="sm"
-                              onClick={() => handleDownload(imageUrl, index)}
+                              onClick={() => handlePreview(imageUrl, index)}
                               className="bg-white text-navy-900 hover:bg-gold-100 shadow-lg"
                             >
-                              <Download className="w-4 h-4 mr-2" />
-                              Download
+                              <Maximize2 className="w-4 h-4 mr-2" />
+                              Preview
                             </Button>
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => toggleFavorite(index)}
-                              className={`shadow-lg ${
-                                favorites.has(index)
-                                  ? 'bg-gold-500 text-white border-gold-500 hover:bg-gold-600'
-                                  : 'bg-white text-navy-900 border-white hover:bg-gold-100'
-                              }`}
+                              onClick={() => handleDownload(imageUrl, index)}
+                              className="bg-gold-500 text-white hover:bg-gold-600 shadow-lg"
                             >
-                              <Heart
-                                className={`w-4 h-4 ${
-                                  favorites.has(index) ? 'fill-current' : ''
-                                }`}
-                              />
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
                             </Button>
                           </div>
                         </div>
@@ -434,7 +658,6 @@ export default function PhotoGeneratorPage() {
                   </div>
                 )}
 
-                {/* Empty State */}
                 {!isGenerating && results.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-[500px] text-center">
                     <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gold-100 to-gold-200 dark:from-gold-900/20 dark:to-gold-800/20 flex items-center justify-center mb-6 animate-float">
@@ -444,7 +667,7 @@ export default function PhotoGeneratorPage() {
                       Your photos will appear here
                     </h3>
                     <p className="text-navy-600 dark:text-navy-400 max-w-md">
-                      Enter a product description, choose a style, and click generate to create stunning AI-powered product photos
+                      Enter a product description, choose a style and size, then click generate
                     </p>
                   </div>
                 )}
@@ -453,6 +676,70 @@ export default function PhotoGeneratorPage() {
           </div>
         </div>
       </div>
+
+      {/* ✅ NEW: Preview Dialog */}
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Preview Photo {previewIndex + 1} of {results.length}</span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDownload(previewImage!, previewIndex)}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative flex items-center justify-center">
+            {/* Previous Button */}
+            {results.length > 1 && (
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={handlePrevPreview}
+                className="absolute left-2 z-10"
+              >
+                ←
+              </Button>
+            )}
+            
+            {/* Image */}
+            <div className="max-h-[70vh] overflow-auto">
+              {previewImage && (
+                <img
+                  src={previewImage}
+                  alt={`Generated photo ${previewIndex + 1}`}
+                  className="max-w-full h-auto rounded-lg"
+                />
+              )}
+            </div>
+            
+            {/* Next Button */}
+            {results.length > 1 && (
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={handleNextPreview}
+                className="absolute right-2 z-10"
+              >
+                →
+              </Button>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewImage(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Prompt Comparison Dialog */}
       <Dialog open={showComparisonDialog} onOpenChange={setShowComparisonDialog}>
@@ -465,7 +752,6 @@ export default function PhotoGeneratorPage() {
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
-            {/* Original Prompt */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-navy-700 dark:text-navy-300">
                 Original Prompt
@@ -475,7 +761,6 @@ export default function PhotoGeneratorPage() {
               </div>
             </div>
 
-            {/* Enhanced Prompt */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gold-700 dark:text-gold-400">
                 Enhanced Prompt
@@ -485,8 +770,7 @@ export default function PhotoGeneratorPage() {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
+            <DialogFooter className="flex gap-3 pt-4">
               <Button
                 onClick={handleApplyEnhanced}
                 className="flex-1 bg-gradient-gold text-white hover:opacity-90"
@@ -501,7 +785,7 @@ export default function PhotoGeneratorPage() {
               >
                 Keep Original
               </Button>
-            </div>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
