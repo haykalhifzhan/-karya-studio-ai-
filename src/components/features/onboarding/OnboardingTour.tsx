@@ -25,7 +25,7 @@ const steps = [
     description:
       'Your professional design studio for creating stunning product photos and promo videos. Let us show you around!',
     icon: Sparkles,
-    color: 'from-gold-400 to-gold-600',
+    color: 'from-purple-400 to-purple-600',
   },
   {
     title: 'Your Dashboard',
@@ -60,7 +60,7 @@ const steps = [
     description:
       'Complete challenges to unlock badges and track your creative journey. You just earned your first one — "First Step"!',
     icon: Trophy,
-    color: 'from-gold-400 to-gold-600',
+    color: 'from-purple-400 to-purple-600',
   },
 ];
 

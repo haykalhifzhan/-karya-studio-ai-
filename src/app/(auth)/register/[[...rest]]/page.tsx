@@ -1,10 +1,10 @@
 'use client';
 
 import { SignUp, useAuth } from '@clerk/nextjs';
-import { Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import LiquidEther from '@/components/LiquidEther';
 
 export default function RegisterPage() {
   const { isSignedIn } = useAuth();
@@ -27,32 +27,41 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 p-12 flex-col justify-between relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-400/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-yellow-400/5 rounded-full blur-3xl" />
+      <div className="hidden lg:flex lg:w-1/2 bg-[#080010] p-12 flex-col justify-between relative overflow-hidden">
+        {/* Liquid Ether Background */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <LiquidEther
+            colors={['#5227FF', '#9333ea', '#8B19EE', '#c026d3']}
+            color0="#5227FF" color1="#9333ea" color2="#8B19EE"
+            mouseForce={60} cursorSize={180}
+            autoDemo={false} dissipation={0.985} resolution={0.5}
+            style={{ width: '100%', height: '100%' }}
+          />
+          <div className="absolute inset-0 bg-black/40" />
+        </div>
 
         <div className="relative z-10">
           <Link href="/" className="flex items-center space-x-2 text-white group">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Sparkles className="w-6 h-6 text-slate-900" />
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_20px_rgba(139,92,246,0.3)] p-1">
+              <img src="/logo-new.png" alt="KaryaStudio Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="text-2xl font-bold">KaryaStudio AI</span>
+            <span className="text-2xl font-bold tracking-tight">KaryaStudio AI</span>
           </Link>
         </div>
 
         <div className="relative z-10 space-y-6">
-          <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight">
-            Start creating with
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-500">
+          <h1 className="text-4xl lg:text-5xl font-black leading-tight tracking-tight text-white">
+            Start creating with<br />
+            <span style={{ color: '#e879f9', textShadow: '0 0 24px rgba(232,121,249,0.5)' }}>
               AI-powered tools
             </span>
           </h1>
-          <p className="text-slate-300 text-lg max-w-md">
+          <p className="text-slate-300 text-lg max-w-md font-semibold leading-relaxed">
             Join thousands of creators who are transforming their ideas into reality with KaryaStudio AI.
           </p>
         </div>
 
-        <div className="relative z-10 text-slate-400 text-sm">
+        <div className="relative z-10 text-slate-400 text-sm font-light">
           © 2024 KaryaStudio AI. All rights reserved.
         </div>
       </div>
@@ -62,10 +71,10 @@ export default function RegisterPage() {
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 flex justify-center">
             <Link href="/" className="flex items-center space-x-2 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-slate-900" />
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(139,92,246,0.3)] p-1">
+                <img src="/logo-new.png" alt="KaryaStudio Logo" className="w-full h-full object-contain" />
               </div>
-              <span className="text-2xl font-bold text-slate-900">KaryaStudio AI</span>
+              <span className="text-2xl font-bold tracking-tight text-slate-900">KaryaStudio AI</span>
             </Link>
           </div>
 

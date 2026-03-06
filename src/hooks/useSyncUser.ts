@@ -32,11 +32,11 @@ export function useSyncUser() {
                     email: convexUser.email,
                     name: convexUser.name,
                     avatar: convexUser.avatar,
-                    onboardingCompleted: convexUser.onboardingCompleted,
+                    onboardingCompleted: convexUser.onboardingCompleted ?? false,
                     createdAt: convexUser.createdAt,
                     updatedAt: convexUser.updatedAt,
                 },
-                convexUser.stats || undefined,
+                (convexUser.stats as any) || undefined,
                 convexUser.achievements || []
             );
         }

@@ -1,23 +1,21 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { achievements as allAchievements, dailyTips } from '@/lib/constants';
 import { useGenerationStore } from '@/stores/generationStore';
 import { useUserStore } from '@/stores/userStore';
 import {
   ArrowRight,
-  Calendar,
   Camera,
-  LayoutDashboard,
+  Images,
   Lightbulb,
+  Plus,
+  Sparkles,
   Trophy,
   Video,
-  Zap
+  Zap,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from 'convex/react';
@@ -28,24 +26,14 @@ export default function DashboardPage() {
   const { user, stats, achievements: unlockedAchievements } = useUserStore();
   const { history } = useGenerationStore();
   const { t, language } = useLanguage();
-  
-  // ✅ Timeout state untuk Convex loading
+
   const [convexTimedOut, setConvexTimedOut] = useState(false);
 
-  // ✅ FIX: Function tidak butuh parameter, cukup empty object {}
-  const achievementsWithProgress = useQuery(
-    api.achievements.getAllWithProgress,
-    {}  // ← Empty object karena function auto-detect user dari auth
-  );
+  const achievementsWithProgress = useQuery(api.achievements.getAllWithProgress, {});
 
-  // ✅ Timeout effect (10 seconds)
   useEffect(() => {
     if (achievementsWithProgress === undefined) {
-      const timer = setTimeout(() => {
-        console.warn('⚠️ Convex achievements query timed out after 10s');
-        setConvexTimedOut(true);
-      }, 10000);
-
+      const timer = setTimeout(() => setConvexTimedOut(true), 10000);
       return () => clearTimeout(timer);
     }
   }, [achievementsWithProgress]);
@@ -57,7 +45,6 @@ export default function DashboardPage() {
 
   const recentGenerations = useMemo(() => history.slice(0, 6), [history]);
 
-  // ✅ Handle undefined/error achievements
   const closestAchievements = useMemo(() => {
     if (!achievementsWithProgress || achievementsWithProgress.length === 0 || convexTimedOut) return [];
     return achievementsWithProgress
@@ -72,365 +59,373 @@ export default function DashboardPage() {
     const diffInMs = now.getTime() - date.getTime();
     const diffInHours = diffInMs / (1000 * 60 * 60);
     const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-
     if (diffInHours < 24) {
       if (diffInHours < 1) return language === 'id' ? 'Baru saja' : 'Just now';
       return `${Math.floor(diffInHours)}h ${language === 'id' ? 'yang lalu' : 'ago'}`;
     } else if (diffInDays < 7) {
       return `${Math.floor(diffInDays)}d ${language === 'id' ? 'yang lalu' : 'ago'}`;
     } else {
-      return date.toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      return date.toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { month: 'short', day: 'numeric' });
     }
   };
 
-  // ✅ Loading check (hanya check user & stats, bukan achievements)
+  // Loading skeleton
   if (!user || !stats) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold-500" />
-          <p className="text-muted-foreground animate-pulse">
-            {language === 'id' ? 'Memuat dashboard...' : 'Loading dashboard...'}
-          </p>
+      <div className="min-h-screen p-6 lg:p-8 space-y-8">
+        <div className="space-y-3">
+          <div className="h-10 w-72 rounded-xl bg-white/5 animate-pulse" />
+          <div className="h-5 w-48 rounded-lg bg-white/5 animate-pulse" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-28 rounded-2xl bg-white/5 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="h-48 rounded-2xl bg-white/5 animate-pulse" />
+          <div className="h-48 rounded-2xl bg-white/5 animate-pulse" />
+        </div>
+        <div className="flex items-center gap-3 justify-center pt-4">
+          <div className="h-5 w-5 rounded-full border-2 border-purple-400 border-t-transparent animate-spin" />
+          <p className="text-sm text-white/40">{language === 'id' ? 'Memuat dashboard...' : 'Loading dashboard...'}</p>
         </div>
       </div>
     );
   }
 
-  // ✅ Show dashboard even if Convex is loading/timed out
-  const showAchievementsSection = achievementsWithProgress && !convexTimedOut && closestAchievements.length > 0;
+  const showAchievements = achievementsWithProgress && !convexTimedOut && closestAchievements.length > 0;
+  const firstName = user?.name?.split(' ')[0] || 'Creator';
 
   return (
-    <div className="min-h-screen bg-background p-6 space-y-8">
-      {/* Welcome Header */}
+    <div className="min-h-screen p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+
+      {/* ── Ambient background glows ── */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        <div className="absolute -top-20 -left-20 w-[500px] h-[500px] bg-purple-600/8 blur-[140px] rounded-full" />
+        <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-indigo-600/6 blur-[120px] rounded-full" />
+        <div className="absolute bottom-0 left-1/3 w-[350px] h-[350px] bg-fuchsia-600/5 blur-[100px] rounded-full" />
+      </div>
+
+      {/* ══════════ HEADER ══════════ */}
       <div className="animate-fade-in-up">
-        <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
-          <div className='bg-gradient-to-br from-gold-400 to-gold-600 p-3 rounded-xl shadow-lg'>
-            <LayoutDashboard className="w-8 h-8 text-white" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-sm text-white/40 font-medium mb-1 uppercase tracking-widest">
+              {language === 'id' ? 'Selamat Datang Kembali' : 'Welcome Back'}
+            </p>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+              {firstName}
+              <span className="animate-bounce origin-bottom inline-block">👋</span>
+            </h1>
+            <p className="text-white/40 text-sm mt-1.5">
+              {language === 'id'
+                ? 'Siap berkreasi hari ini? Studio AI Anda siap digunakan.'
+                : 'Ready to create today? Your AI Studio is ready.'}
+            </p>
           </div>
-          {language === 'id' ? 'Selamat Datang Kembali' : 'Welcome Back'}, {user?.name || 'User'}!
-        </h1>
-        <p className="text-muted-foreground mb-4">
-          {language === 'id' 
-            ? 'Ini yang terjadi dengan studio kreatif Anda hari ini.' 
-            : "Here's what's happening with your creative studio today."}
-        </p>
 
-        {/* Daily Tip Card */}
-        <Card className="bg-gradient-to-r from-gold-500/10 to-gold-600/10 border-gold-500/20 shadow-md">
-          <CardContent className="flex items-start gap-4 p-4">
-            <div className="bg-gold-500 text-white p-3 rounded-lg">
-              <Lightbulb className="w-6 h-6" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-foreground mb-1">
-                {language === 'id' ? '💡 Tips Harian' : '💡 Daily Tip'}: {dailyTip.title}
-              </h3>
-              <p className="text-sm text-muted-foreground">{dailyTip.content}</p>
-            </div>
-          </CardContent>
-        </Card>
+          {/* Quick action buttons */}
+          <div className="flex items-center gap-3">
+            <Link href="/generate/photo">
+              <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-all hover:scale-105 shadow-lg shadow-purple-500/25">
+                <Plus className="w-4 h-4" />
+                {language === 'id' ? 'Buat Konten' : 'Create Content'}
+              </button>
+            </Link>
+          </div>
+        </div>
       </div>
 
-      {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-        <Card className="hover:shadow-lg transition-shadow duration-300">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="bg-blue-500/10 text-blue-600 p-4 rounded-xl">
-              <Zap className="w-8 h-8" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">
-                {language === 'id' ? 'Total Generasi' : 'Total Generations'}
-              </p>
-              <p className="text-3xl font-bold text-foreground">{stats?.totalGenerations || 0}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow duration-300">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="bg-green-500/10 text-green-600 p-4 rounded-xl">
-              <Camera className="w-8 h-8" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">
-                {language === 'id' ? 'Foto Dibuat' : 'Photos Created'}
-              </p>
-              <p className="text-3xl font-bold text-foreground">{stats?.totalPhotos || 0}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow duration-300">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="bg-purple-500/10 text-purple-600 p-4 rounded-xl">
-              <Video className="w-8 h-8" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">
-                {language === 'id' ? 'Video Dibuat' : 'Videos Created'}
-              </p>
-              <p className="text-3xl font-bold text-foreground">{stats?.totalVideos || 0}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow duration-300">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="bg-gold-500/10 text-gold-600 p-4 rounded-xl">
-              <Trophy className="w-8 h-8" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">
-                {language === 'id' ? 'Pencapaian' : 'Achievements'}
-              </p>
-              <p className="text-3xl font-bold text-foreground">
-                {unlockedAchievements?.length || 0}
-                <span className="text-lg text-muted-foreground">/{allAchievements.length}</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-        <Link href="/generate/photo" className="block group">
-          <Card className="h-full bg-gradient-to-br from-gold-500 to-gold-600 text-white border-0 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
-            <CardContent className="flex items-center justify-between p-8">
-              <div className="space-y-2">
-                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
-                  <Camera className="w-8 h-8" />
-                </div>
-                <h3 className="text-2xl font-bold">
-                  {language === 'id' ? 'Buat Foto Produk' : 'Generate Product Photo'}
-                </h3>
-                <p className="text-white/80">
-                  {language === 'id' 
-                    ? 'Buat gambar produk menakjubkan dengan AI' 
-                    : 'Create stunning AI-powered product images'}
-                </p>
+      {/* ══════════ STATS ROW ══════════ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+        {[
+          {
+            icon: Zap, label: language === 'id' ? 'Total Generasi' : 'Total Generated',
+            value: stats?.totalGenerations || 0,
+            color: '#a78bfa', bg: 'from-violet-500/15 to-violet-600/5', border: 'border-violet-500/20',
+          },
+          {
+            icon: Camera, label: language === 'id' ? 'Foto Dibuat' : 'Photos Created',
+            value: stats?.totalPhotos || 0,
+            color: '#34d399', bg: 'from-emerald-500/15 to-emerald-600/5', border: 'border-emerald-500/20',
+          },
+          {
+            icon: Video, label: language === 'id' ? 'Video Dibuat' : 'Videos Created',
+            value: stats?.totalVideos || 0,
+            color: '#60a5fa', bg: 'from-blue-500/15 to-blue-600/5', border: 'border-blue-500/20',
+          },
+          {
+            icon: Trophy, label: language === 'id' ? 'Pencapaian' : 'Achievements',
+            value: `${unlockedAchievements?.length || 0}/${allAchievements.length}`,
+            color: '#fbbf24', bg: 'from-amber-500/15 to-amber-600/5', border: 'border-amber-500/20',
+          },
+        ].map((stat, i) => (
+          <div
+            key={i}
+            className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${stat.bg} border ${stat.border} p-5 hover:-translate-y-1 transition-all duration-300 group cursor-default`}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: `${stat.color}22`, border: `1px solid ${stat.color}33` }}
+              >
+                <stat.icon className="w-5 h-5" style={{ color: stat.color }} />
               </div>
-              <ArrowRight className="w-8 h-8 group-hover:translate-x-2 transition-transform duration-300" />
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/generate/video" className="block group">
-          <Card className="h-full bg-gradient-to-br from-navy-600 to-navy-700 text-white border-0 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300">
-            <CardContent className="flex items-center justify-between p-8">
-              <div className="space-y-2">
-                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
-                  <Video className="w-8 h-8" />
-                </div>
-                <h3 className="text-2xl font-bold">
-                  {language === 'id' ? 'Buat Video Promo' : 'Create Promo Video'}
-                </h3>
-                <p className="text-white/80">
-                  {language === 'id' 
-                    ? 'Ubah foto menjadi video menarik' 
-                    : 'Transform photos into engaging videos'}
-                </p>
-              </div>
-              <ArrowRight className="w-8 h-8 group-hover:translate-x-2 transition-transform duration-300" />
-            </CardContent>
-          </Card>
-        </Link>
+            </div>
+            <p className="text-2xl font-black text-white mb-0.5">
+              {typeof stat.value === 'string' ? (
+                <>
+                  {stat.value.split('/')[0]}
+                  <span className="text-sm text-white/40 font-medium">/{stat.value.split('/')[1]}</span>
+                </>
+              ) : stat.value}
+            </p>
+            <p className="text-xs text-white/40 font-medium">{stat.label}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Recent Generations */}
-      <div className="animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+      {/* ══════════ DAILY TIP ══════════ */}
+      <div
+        className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5 flex items-start gap-4 animate-fade-in-up hover:border-purple-500/30 transition-colors"
+        style={{ animationDelay: '0.1s' }}
+      >
+        <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0 mt-0.5">
+          <Lightbulb className="w-5 h-5 text-purple-400" />
+        </div>
+        <div>
+          <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">
+            {language === 'id' ? 'Tips Harian' : 'Daily Tip'} · {dailyTip.title}
+          </p>
+          <p className="text-sm text-white/60 leading-relaxed">{dailyTip.content}</p>
+        </div>
+      </div>
+
+      {/* ══════════ QUICK ACTIONS ══════════ */}
+      <div className="animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
+        <h2 className="text-lg font-bold text-white mb-4">
+          {language === 'id' ? '🚀 Mulai Berkreasi' : '🚀 Start Creating'}
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Photo Generator Card */}
+          <Link href="/generate/photo" className="block group">
+            <div className="relative overflow-hidden rounded-2xl border border-purple-500/20 bg-gradient-to-br from-purple-500/10 via-purple-600/5 to-transparent p-6 h-full hover:border-purple-500/40 hover:-translate-y-1.5 transition-all duration-300"
+              style={{ boxShadow: '0 0 0 0 transparent', transition: 'all 0.3s' }}
+            >
+              <div className="absolute top-0 right-0 w-40 h-40 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center mb-5 shadow-lg shadow-purple-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                  <Camera className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-300 transition-colors">
+                  {language === 'id' ? 'Foto Produk AI' : 'AI Product Photo'}
+                </h3>
+                <p className="text-white/50 text-sm leading-relaxed mb-5">
+                  {language === 'id'
+                    ? 'Ubah foto biasa menjadi foto katalog produk profesional dengan AI.'
+                    : 'Turn ordinary photos into professional product catalog shots with AI.'}
+                </p>
+                <div className="flex items-center gap-2 text-sm font-semibold text-purple-400 group-hover:gap-3 transition-all">
+                  {language === 'id' ? 'Mulai Sekarang' : 'Start Now'}
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Video Generator Card */}
+          <Link href="/generate/video" className="block group">
+            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-indigo-600/5 to-transparent p-6 h-full hover:border-indigo-500/40 hover:-translate-y-1.5 transition-all duration-300">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center mb-5 shadow-lg shadow-indigo-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                  <Video className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-300 transition-colors">
+                  {language === 'id' ? 'Video Promo AI' : 'AI Promo Video'}
+                </h3>
+                <p className="text-white/50 text-sm leading-relaxed mb-5">
+                  {language === 'id'
+                    ? 'Animasikan produk Anda menjadi video promosi yang menarik perhatian.'
+                    : 'Animate your products into attention-grabbing promotional videos.'}
+                </p>
+                <div className="flex items-center gap-2 text-sm font-semibold text-indigo-400 group-hover:gap-3 transition-all">
+                  {language === 'id' ? 'Mulai Sekarang' : 'Start Now'}
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        {/* Secondary actions row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <Link href="/templates" className="flex items-center gap-3 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group">
+            <div className="w-9 h-9 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-rose-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">{language === 'id' ? 'Jelajahi Template' : 'Browse Templates'}</p>
+              <p className="text-xs text-white/40">{language === 'id' ? 'Desain siap pakai' : 'Ready-made designs'}</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all" />
+          </Link>
+          <Link href="/gallery" className="flex items-center gap-3 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group">
+            <div className="w-9 h-9 rounded-lg bg-teal-500/15 flex items-center justify-center shrink-0">
+              <Images className="w-4 h-4 text-teal-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">{language === 'id' ? 'Galeri Saya' : 'My Gallery'}</p>
+              <p className="text-xs text-white/40">
+                {recentGenerations.length} {language === 'id' ? 'karya tersimpan' : 'saved creations'}
+              </p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all" />
+          </Link>
+        </div>
+      </div>
+
+      {/* ══════════ RECENT GENERATIONS ══════════ */}
+      <div className="animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-foreground">
-            {language === 'id' ? 'Generasi Terbaru' : 'Recent Generations'}
+          <h2 className="text-lg font-bold text-white">
+            {language === 'id' ? '🖼️ Generasi Terbaru' : '🖼️ Recent Creations'}
           </h2>
-          <Link href="/history">
-            <Button variant="ghost" className="text-gold-600 hover:text-gold-700">
-              {language === 'id' ? 'Lihat Semua' : 'View All'} 
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+          <Link href="/gallery" className="flex items-center gap-1.5 text-sm font-semibold text-purple-400 hover:text-purple-300 transition-colors group">
+            {language === 'id' ? 'Lihat Semua' : 'View All'}
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
 
         {recentGenerations.length > 0 ? (
-          <div className="overflow-x-auto pb-4">
-            <div className="flex gap-4 min-w-max">
-              {recentGenerations.map((generation) => (
-                <Card key={generation.id} className="w-64 hover:shadow-lg transition-shadow duration-300 flex-shrink-0">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-                      {generation.thumbnailUrl || generation.resultUrls?.[0] ? (
-                        <Image
-                          src={generation.thumbnailUrl || generation.resultUrls[0]}
-                          alt={generation.type === 'photo' ? 'Product Photo' : 'Promo Video'}
-                          fill
-                          className="object-cover"
-                        />
+          <div className="relative">
+            <div className="absolute top-0 right-0 bottom-0 w-12 bg-gradient-to-l from-[#080010] to-transparent z-10 pointer-events-none" />
+            <div className="overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
+              <div className="flex gap-4 min-w-max">
+                {recentGenerations.map((gen) => (
+                  <Link href="/gallery" key={gen.id} className="block group shrink-0">
+                    <div className="w-48 aspect-[3/4] relative rounded-2xl overflow-hidden border border-white/5 hover:border-purple-500/30 transition-all hover:-translate-y-1 duration-300 shadow-lg">
+                      {gen.thumbnailUrl || gen.resultUrls?.[0] ? (
+                        <>
+                          <img
+                            src={gen.thumbnailUrl || gen.resultUrls[0]}
+                            alt={gen.type}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                        </>
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          {generation.type === 'photo' ? (
-                            <Camera className="w-12 h-12 text-muted-foreground" />
-                          ) : (
-                            <Video className="w-12 h-12 text-muted-foreground" />
-                          )}
+                        <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                          {gen.type === 'photo' ? <Camera className="w-8 h-8 text-white/20" /> : <Video className="w-8 h-8 text-white/20" />}
                         </div>
                       )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Badge
-                          variant={generation.type === 'photo' ? 'default' : 'secondary'}
-                          className={generation.type === 'photo' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'}
-                        >
-                          {generation.type === 'photo' ? (
-                            <>
-                              <Camera className="w-3 h-3 mr-1" />
-                              {language === 'id' ? 'Foto' : 'Photo'}
-                            </>
-                          ) : (
-                            <>
-                              <Video className="w-3 h-3 mr-1" />
-                              {language === 'id' ? 'Video' : 'Video'}
-                            </>
-                          )}
-                        </Badge>
-                        <span className="flex items-center text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {formatDate(generation.createdAt)}
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${gen.type === 'photo' ? 'bg-purple-500/30 text-purple-300' : 'bg-indigo-500/30 text-indigo-300'}`}>
+                          {gen.type}
                         </span>
+                        <p className="text-[11px] text-white/50 mt-1">{formatDate(gen.createdAt)}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{generation.prompt}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
-          <Card className="border-dashed border-2 border-muted">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="bg-muted p-6 rounded-full mb-4">
-                <Camera className="w-12 h-12 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                {language === 'id' ? 'Belum ada generasi' : 'No generations yet'}
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-md">
-                {language === 'id' 
-                  ? 'Mulai buat foto dan video produk amazing dengan AI. Kreasi Anda akan muncul di sini.' 
-                  : 'Start creating amazing product photos and videos with AI. Your creations will appear here.'}
-              </p>
-              <div className="flex gap-4">
-                <Link href="/generate/photo">
-                  <Button className="bg-gold-600 hover:bg-gold-700">
-                    <Camera className="w-4 h-4 mr-2" />
-                    {language === 'id' ? 'Buat Foto' : 'Generate Photo'}
-                  </Button>
-                </Link>
-                <Link href="/generate/video">
-                  <Button variant="outline">
-                    <Video className="w-4 h-4 mr-2" />
-                    {language === 'id' ? 'Buat Video' : 'Create Video'}
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] flex flex-col items-center justify-center py-16 px-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4 border border-white/5">
+              <Camera className="w-8 h-8 text-white/20" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-2">
+              {language === 'id' ? 'Kanvas Masih Kosong' : 'Canvas is Empty'}
+            </h3>
+            <p className="text-sm text-white/40 mb-6 max-w-xs">
+              {language === 'id'
+                ? 'Mulai generasikan konten pertama Anda sekarang.'
+                : 'Start generating your first piece of content now.'}
+            </p>
+            <Link href="/generate/photo">
+              <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-all hover:scale-105 shadow-lg shadow-purple-500/25">
+                <Camera className="w-4 h-4" />
+                {language === 'id' ? 'Buat Foto Baru' : 'Generate First Photo'}
+              </button>
+            </Link>
+          </div>
         )}
       </div>
 
-      {/* Achievement Progress - hanya jika Convex ready */}
-      {showAchievementsSection && (
-        <div className="animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+      {/* ══════════ ACHIEVEMENTS ══════════ */}
+      {showAchievements && (
+        <div className="animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-foreground">
-              {language === 'id' ? 'Progress Pencapaian' : 'Achievement Progress'}
+            <h2 className="text-lg font-bold text-white">
+              🎯 {language === 'id' ? 'Misi Aktif' : 'Active Missions'}
             </h2>
-            <Link href="/achievements">
-              <Button variant="ghost" className="text-gold-600 hover:text-gold-700">
-                {language === 'id' ? 'Lihat Semua' : 'View All'} 
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
+            <Link href="/achievements" className="flex items-center gap-1.5 text-sm font-semibold text-purple-400 hover:text-purple-300 transition-colors group">
+              {language === 'id' ? 'Lihat Semua' : 'View All'}
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {closestAchievements.map((achievement: any) => (
-              <Card key={achievement.id} className="hover:shadow-lg transition-shadow duration-300">
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`p-3 rounded-xl ${achievement.rarity === 'platinum'
-                          ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white'
-                          : achievement.rarity === 'gold'
-                            ? 'bg-gradient-to-br from-gold-300 to-gold-500 text-white'
-                            : achievement.rarity === 'silver'
-                              ? 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-700'
-                              : 'bg-gradient-to-br from-orange-300 to-orange-500 text-white'
-                          }`}
-                      >
-                        <Trophy className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{achievement.name}</h3>
-                        <p className="text-xs text-muted-foreground capitalize">{achievement.rarity}</p>
-                      </div>
+              <div
+                key={achievement.id}
+                className="relative overflow-hidden rounded-2xl bg-white/[0.03] border border-white/5 p-5 hover:bg-white/[0.05] hover:border-white/10 transition-all"
+              >
+                <div className="absolute -top-8 -right-8 w-24 h-24 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${achievement.rarity === 'platinum' ? 'bg-gradient-to-br from-indigo-300 to-indigo-600' :
+                      achievement.rarity === 'space' ? 'bg-gradient-to-br from-purple-300 to-purple-600' :
+                        achievement.rarity === 'silver' ? 'bg-gradient-to-br from-slate-300 to-slate-500' :
+                          'bg-gradient-to-br from-orange-400 to-orange-600'
+                      }`}>
+                      <Trophy className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-sm leading-tight">{achievement.name}</h3>
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">{achievement.rarity}</span>
                     </div>
                   </div>
-
-                  <p className="text-sm text-muted-foreground">{achievement.description}</p>
-
+                  <p className="text-xs text-white/50 mb-4 leading-relaxed">{achievement.description}</p>
                   <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {language === 'id' ? 'Progress' : 'Progress'}
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-purple-400 font-medium">
+                        {achievement.remainingProgress > 0
+                          ? `${achievement.remainingProgress} ${language === 'id' ? 'lagi' : 'more'}`
+                          : language === 'id' ? 'Siap di-claim!' : 'Ready!'}
                       </span>
-                      <span className="font-semibold text-foreground">
-                        {achievement.currentProgress || 0} / {achievement.threshold}
+                      <span className="text-xs font-bold text-white">
+                        {achievement.currentProgress || 0}<span className="text-white/30">/{achievement.threshold}</span>
                       </span>
                     </div>
-                    <Progress
-                      value={achievement.progressPercent || 0}
-                      className="h-2"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {achievement.remainingProgress > 0
-                        ? language === 'id' 
-                          ? `${achievement.remainingProgress} lagi untuk membuka` 
-                          : `${achievement.remainingProgress} more to unlock`
-                        : language === 'id' 
-                          ? 'Hampir selesai!' 
-                          : 'Almost there!'}
-                    </p>
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-500"
+                        style={{ width: `${achievement.progressPercent || 0}%` }}
+                      />
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Warning jika Convex timeout */}
+      {/* Convex timeout warning */}
       {convexTimedOut && (
-        <Card className="border-yellow-500/20 bg-yellow-500/5">
+        <Card className="border-amber-500/20 bg-amber-500/5">
           <CardContent className="p-4 flex items-center gap-3">
-            <Trophy className="w-5 h-5 text-yellow-600" />
+            <Trophy className="w-5 h-5 text-amber-500 shrink-0" />
             <div>
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                {language === 'id' 
-                  ? 'Pelacakan pencapaian sedang tidak tersedia' 
-                  : 'Achievement tracking is currently unavailable'}
+              <p className="text-sm font-semibold text-amber-200">
+                {language === 'id' ? 'Pelacakan pencapaian tidak tersedia' : 'Achievement tracking unavailable'}
               </p>
-              <p className="text-xs text-yellow-600/80 dark:text-yellow-300/80">
-                {language === 'id' 
-                  ? 'Database Convex tidak merespon. Fitur akan terbatas.' 
-                  : 'Convex database is not responding. Features will be limited.'}
+              <p className="text-xs text-amber-300/60">
+                {language === 'id' ? 'Database tidak merespon. Coba refresh halaman.' : 'Database not responding. Try refreshing.'}
               </p>
             </div>
           </CardContent>

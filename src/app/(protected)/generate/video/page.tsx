@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import {
   Video,
   Play,
-  Pause,
   Download,
   Loader2,
   Upload,
@@ -12,36 +11,45 @@ import {
   X,
   Maximize2,
   Sparkles,
+  Wand2,
+  Waves,
+  Zap,
+  Film,
+  ZoomIn,
+  ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useGenerationStore } from '@/stores/generationStore';
 import { toast } from 'sonner';
 import type { Generation } from '@/types';
 
-const motionStyles = [
-  { id: 'smooth', name: 'Smooth', icon: '🌊', desc: 'Gentle, flowing movement' },
-  { id: 'dynamic', name: 'Dynamic', icon: '⚡', desc: 'Energetic, fast-paced' },
-  { id: 'cinematic', name: 'Cinematic', icon: '🎥', desc: 'Movie-like camera movement' },
-  { id: 'zoom-in', name: 'Zoom In', icon: '🔍', desc: 'Slow zoom into subject' },
-  { id: 'pan-left', name: 'Pan Left', icon: '⬅️', desc: 'Camera pans left' },
-  { id: 'pan-right', name: 'Pan Right', icon: '➡️', desc: 'Camera pans right' },
+/* ─── Data ─────────────────────────────────────────────────────── */
+
+const MOTION_STYLES = [
+  { id: 'smooth', name: 'Smooth', desc: 'Gentle flowing movement', icon: Waves, color: '#60a5fa', bg: 'rgba(96,165,250,0.12)' },
+  { id: 'dynamic', name: 'Dynamic', desc: 'Energetic, fast-paced', icon: Zap, color: '#fbbf24', bg: 'rgba(251,191,36,0.12)' },
+  { id: 'cinematic', name: 'Cinematic', desc: 'Movie-like camera work', icon: Film, color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  { id: 'zoom-in', name: 'Zoom In', desc: 'Slow zoom into subject', icon: ZoomIn, color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+  { id: 'pan-left', name: 'Pan Left', desc: 'Camera sweeps left', icon: ArrowLeft, color: '#f472b6', bg: 'rgba(244,114,182,0.12)' },
+  { id: 'pan-right', name: 'Pan Right', desc: 'Camera sweeps right', icon: ArrowRight, color: '#fb923c', bg: 'rgba(251,146,60,0.12)' },
 ];
 
-const sampleImages = [
+const SAMPLE_IMAGES = [
   'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=800&fit=crop',
   'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop',
   'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&h=800&fit=crop',
   'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&h=800&fit=crop',
 ];
 
+/* ─── Component ─────────────────────────────────────────────────── */
+
 export default function VideoGeneratorPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [previewUrl, setPreviewUrl] = useState('');
   const [videoPrompt, setVideoPrompt] = useState('');
   const [motionStyle, setMotionStyle] = useState('smooth');
   const [duration, setDuration] = useState(5);
@@ -51,540 +59,487 @@ export default function VideoGeneratorPage() {
   const [generatedVideo, setGeneratedVideo] = useState<Generation | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-  
-  // ✅ NEW: Enhance Prompt State
   const [enhancedPrompt, setEnhancedPrompt] = useState('');
-  const [showEnhanceDialog, setShowEnhanceDialog] = useState(false);
+  const [showEnhDialog, setShowEnhDialog] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const { addGeneration } = useGenerationStore();
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please upload an image file (JPG, PNG, GIF)');
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size must be less than 5MB');
-        return;
-      }
-      setUploadedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      toast.success('Image uploaded successfully');
-    }
-  };
+  const MAX_CHARS = 500;
+  const activeMotion = MOTION_STYLES.find((m) => m.id === motionStyle)!;
 
-  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please drop an image file (JPG, PNG, GIF)');
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size must be less than 5MB');
-        return;
-      }
-      setUploadedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      toast.success('Image uploaded successfully');
-    }
+  /* ── Upload ─────────────────────────────────────────────────── */
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Please upload an image file'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('File must be less than 5MB'); return; }
+    setUploadedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    toast.success('Image uploaded');
   };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-  };
-
-  const handleRemoveFile = () => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.[0]) processFile(e.target.files[0]); };
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]); };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
+  const removeFile = () => {
     setUploadedFile(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl('');
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (previewUrl && uploadedFile) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleSampleSelect = (url: string) => {
-    setPreviewUrl(url.trim());
-    setUploadedFile(null);
-  };
+  /* ── Sample picker ───────────────────────────────────────────── */
+  const selectSample = (url: string) => { setPreviewUrl(url.trim()); setUploadedFile(null); };
 
-  // ✅ NEW: Enhance Prompt Handler
-  const handleEnhancePrompt = async () => {
-    if (!videoPrompt.trim()) {
-      toast.error('Please enter a video description first');
-      return;
-    }
-
+  /* ── Enhance ─────────────────────────────────────────────────── */
+  const handleEnhance = async () => {
+    if (!videoPrompt.trim()) { toast.error('Enter a description first'); return; }
     setIsEnhancing(true);
     try {
-      const response = await fetch('/api/enhance-video-prompt', {
+      const res = await fetch('/api/enhance-video-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt: videoPrompt,
-          motionStyle 
-        }),
+        body: JSON.stringify({ prompt: videoPrompt, motionStyle }),
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setEnhancedPrompt(data.enhanced);
-        setShowEnhanceDialog(true);
-        toast.success('Prompt enhanced successfully!');
-      } else {
-        toast.error('Failed to enhance prompt');
-      }
-    } catch (error) {
-      console.error('Enhance error:', error);
-      toast.error('Error enhancing prompt');
-    } finally {
-      setIsEnhancing(false);
-    }
+      const data = await res.json();
+      if (data.success) { setEnhancedPrompt(data.enhanced); setShowEnhDialog(true); }
+      else toast.error('Failed to enhance prompt');
+    } catch { toast.error('Error enhancing prompt'); }
+    finally { setIsEnhancing(false); }
   };
 
-  const handleApplyEnhanced = () => {
-    setVideoPrompt(enhancedPrompt);
-    setShowEnhanceDialog(false);
-    toast.success('Enhanced prompt applied');
-  };
-
-  const handleKeepOriginal = () => {
-    setShowEnhanceDialog(false);
-    toast.info('Keeping original prompt');
-  };
-
+  /* ── Generate ────────────────────────────────────────────────── */
   const handleGenerate = async () => {
-    if (!previewUrl) {
-      toast.error('Please upload or select an image');
-      return;
-    }
-
-    setIsGenerating(true);
-    setProgress(10);
-    setGeneratedVideo(null);
-
+    if (!previewUrl) { toast.error('Please upload or select an image first'); return; }
+    setIsGenerating(true); setProgress(10); setGeneratedVideo(null);
     try {
       let imageUrlForApi = previewUrl.trim();
-      
+
       if (uploadedFile) {
         setProgress(20);
-        toast.info('Uploading image to OSS...');
-        
-        const formData = new FormData();
-        formData.append('file', uploadedFile);
-        
-        const uploadResponse = await fetch('/api/upload-to-oss', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        const uploadData = await uploadResponse.json();
-        
-        if (!uploadData.success) {
-          throw new Error(uploadData.message || 'Failed to upload image');
-        }
-        
-        imageUrlForApi = uploadData.url.trim();
-        console.log('✅ Uploaded to OSS:', imageUrlForApi);
+        toast.info('Uploading image...');
+        const form = new FormData();
+        form.append('file', uploadedFile);
+        const up = await fetch('/api/upload-to-oss', { method: 'POST', body: form });
+        const upd = await up.json();
+        if (!upd.success) throw new Error(upd.message || 'Upload failed');
+        imageUrlForApi = upd.url.trim();
         setProgress(50);
       }
 
       setProgress(60);
       toast.info('Generating video with AI...');
-
-      const response = await fetch('/api/generate/video', {
+      const res = await fetch('/api/generate/video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageUrl: imageUrlForApi,
-          prompt: videoPrompt,
-          motionStyle,
-          duration,
-          aspectRatio: '1280*720'
-        }),
+        body: JSON.stringify({ imageUrl: imageUrlForApi, prompt: videoPrompt, motionStyle, duration, aspectRatio: '1280*720' }),
       });
-
-      const data = await response.json();
-      console.log('📥 Response:', data);
+      const data = await res.json();
 
       if (data.success && data.generation) {
         setProgress(100);
         addGeneration(data.generation);
         setGeneratedVideo(data.generation);
-        toast.success('Video generated successfully!');
+        toast.success('Video generated!');
       } else {
-        toast.error(data.message || 'Failed to generate video', {
-          description: data.hint || '',
-        });
+        toast.error(data.message || 'Failed to generate video', { description: data.hint || '' });
       }
-    } catch (error) {
-      console.error('Video generation error:', error);
-      toast.error('Error generating video', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+    } catch (err) {
+      toast.error('Error generating video', { description: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
-      setIsGenerating(false);
-      setTimeout(() => setProgress(0), 1000);
+      setIsGenerating(false); setTimeout(() => setProgress(0), 800);
+    }
+  };
+
+  /* ── Download ────────────────────────────────────────────────── */
+  const handleDownload = async () => {
+    if (!generatedVideo?.videoUrl) return;
+    try {
+      const res = await fetch(generatedVideo.videoUrl, { mode: 'cors' });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob),
+        download: `karya-video-${Date.now()}.mp4`,
+      });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      toast.success('Downloaded!');
+    } catch {
+      window.open(generatedVideo.videoUrl, '_blank');
+      toast.success('Opened in new tab');
     }
   };
 
   const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
+    if (!videoRef.current) return;
+    if (isPlaying) { videoRef.current.pause(); } else { videoRef.current.play(); }
+    setIsPlaying(!isPlaying);
   };
 
-  const handleDownload = async () => {
-    if (!generatedVideo?.videoUrl) return;
-
-    try {
-      const response = await fetch(generatedVideo.videoUrl, {
-        method: 'GET',
-        mode: 'cors',
-      });
-
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `karya-video-${Date.now()}.mp4`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      toast.success('Video downloaded successfully!');
-    } catch (error) {
-      console.error('Download error:', error);
-      window.open(generatedVideo.videoUrl, '_blank');
-      toast.success('Video opened in new tab');
-    }
-  };
-
+  /* ══════════════════════════════════ JSX ══════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-navy-50 via-white to-gold-50 dark:from-navy-950 dark:via-navy-900 dark:to-navy-800 p-4 md:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8 animate-fade-in-up">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-3 bg-gradient-gold rounded-xl shadow-lg">
-              <Video className="w-8 h-8 text-white" />
+    <div className="min-h-screen p-6 lg:p-8 max-w-7xl mx-auto">
+
+      {/* Ambient glows */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-[500px] h-[500px] bg-indigo-600/6 blur-[140px] rounded-full" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-violet-600/4 blur-[120px] rounded-full" />
+      </div>
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between mb-8 animate-fade-in-up">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="relative">
+            <div className="absolute inset-0 bg-indigo-400/40 blur-lg rounded-xl" />
+            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 via-violet-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-500/40">
+              <Video className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-navy-900 dark:text-white">
-                Video Generator
-              </h1>
-              <p className="text-navy-600 dark:text-navy-300">
-                Transform your product images into engaging marketing videos with AI
-              </p>
-            </div>
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-white tracking-tight">Video Generator</h1>
+            <p className="text-sm text-white/40">Turn your product photos into cinematic videos</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-          {/* LEFT SIDE - Input */}
-          <div className="space-y-6 animate-slide-in-left">
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Source Image</h3>
-                
-                <div
-                  onClick={() => !previewUrl && fileInputRef.current?.click()}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-                    previewUrl 
-                      ? 'border-gold-300 bg-gold-50 dark:bg-gold-900/10' 
-                      : 'border-navy-200 hover:border-gold-300 dark:border-navy-700'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  
-                  {previewUrl ? (
-                    <div className="relative aspect-square rounded-lg overflow-hidden">
-                      <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={(e) => { e.stopPropagation(); handleRemoveFile(); }}
-                        className="absolute top-2 right-2"
+        {/* Desktop generate button */}
+        <button
+          onClick={handleGenerate}
+          disabled={isGenerating || !previewUrl}
+          className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 disabled:from-indigo-600/50 disabled:to-violet-700/50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all hover:scale-105 shadow-lg shadow-indigo-500/30"
+        >
+          {isGenerating
+            ? <><Loader2 className="w-4 h-4 animate-spin" />{progress}%</>
+            : <><Video className="w-4 h-4" />Generate Video</>
+          }
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      {isGenerating && (
+        <div className="h-0.5 w-full bg-white/5 rounded-full overflow-hidden mb-8">
+          <div
+            className="h-full bg-gradient-to-r from-indigo-500 to-violet-400 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+
+      {/* ── Two-column layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+
+        {/* ════════════ LEFT: Controls ════════════ */}
+        <div className="space-y-3">
+
+          {/* ① Source image */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+            <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">Source Image <span className="normal-case font-semibold text-white/60">· required</span></p>
+
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+
+            {previewUrl ? (
+              <div
+                className="relative rounded-xl overflow-hidden border border-white/10 group cursor-pointer"
+                onClick={removeFile}
+              >
+                <img src={previewUrl} alt="Source" className="w-full aspect-video object-cover" />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
+                  <X className="w-5 h-5 text-white" />
+                  <span className="text-white text-sm font-semibold">Remove</span>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                className="border-2 border-dashed border-white/10 hover:border-indigo-500/40 rounded-xl transition-all duration-200 cursor-pointer group"
+              >
+                <div className="flex flex-col items-center justify-center py-8 gap-2.5">
+                  <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-indigo-500/10 group-hover:border-indigo-500/20 transition-all duration-200">
+                    <Upload className="w-5 h-5 text-white/30 group-hover:text-indigo-400 transition-colors" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-white/60 group-hover:text-white/80 transition-colors">Drop image here or click to browse</p>
+                    <p className="text-xs text-white/25 mt-0.5">JPG, PNG, GIF · max 5MB</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sample images */}
+            <div className="mt-4">
+              <p className="text-xs text-white/30 mb-2.5 font-medium">
+                {previewUrl ? 'Or choose a different sample:' : 'Or try a sample image:'}
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {SAMPLE_IMAGES.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => selectSample(img)}
+                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all duration-200 hover:scale-105 ${previewUrl === img
+                        ? 'border-indigo-500 shadow-lg shadow-indigo-500/25'
+                        : 'border-white/10 hover:border-indigo-500/40'
+                      }`}
+                  >
+                    <img src={img} alt={`Sample ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ② Description */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Video Description <span className="normal-case font-normal">· optional</span></p>
+              <span className={`text-xs font-mono ${videoPrompt.length > MAX_CHARS * 0.9 ? 'text-rose-400' : 'text-white/25'}`}>
+                {videoPrompt.length}/{MAX_CHARS}
+              </span>
+            </div>
+
+            <Textarea
+              value={videoPrompt}
+              onChange={(e) => setVideoPrompt(e.target.value.slice(0, MAX_CHARS))}
+              placeholder="e.g. Product rotating slowly with dramatic lighting and smoke effect..."
+              className="min-h-[100px] resize-none bg-white/[0.03] border-white/8 text-white/90 placeholder:text-white/20 focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20 rounded-xl text-sm leading-relaxed"
+              maxLength={MAX_CHARS}
+            />
+
+            <div className="mt-2 h-0.5 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-200 ${videoPrompt.length > MAX_CHARS * 0.9 ? 'bg-rose-500' : 'bg-indigo-500/50'}`}
+                style={{ width: `${(videoPrompt.length / MAX_CHARS) * 100}%` }}
+              />
+            </div>
+
+            <p className="text-xs text-white/25 mt-2">Leave empty — AI will infer motion from the image</p>
+
+            <button
+              onClick={handleEnhance}
+              disabled={isEnhancing || !videoPrompt.trim()}
+              className="mt-3 w-full flex items-center justify-center gap-2 h-9 rounded-xl border border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-500/35 text-indigo-400 hover:text-indigo-300 text-xs font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {isEnhancing
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Enhancing...</>
+                : <><Wand2 className="w-3.5 h-3.5" />Enhance description with AI</>
+              }
+            </button>
+          </div>
+
+          {/* ③ Motion style + Duration */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] divide-y divide-white/5 overflow-hidden">
+
+            {/* Motion */}
+            <div className="p-5">
+              <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">Motion Style</p>
+              <div className="grid grid-cols-2 gap-2">
+                {MOTION_STYLES.map((style) => {
+                  const Icon = style.icon;
+                  const active = motionStyle === style.id;
+                  return (
+                    <button
+                      key={style.id}
+                      onClick={() => setMotionStyle(style.id)}
+                      className={`relative flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 ${active
+                          ? 'border-indigo-500/50 bg-indigo-500/8'
+                          : 'border-white/12 bg-white/6 hover:bg-white/10 hover:border-white/20'
+                        }`}
+                    >
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ background: active ? style.bg : 'rgba(255,255,255,0.10)' }}
                       >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="py-8">
-                      <Upload className="w-10 h-10 mx-auto mb-2 text-navy-400" />
-                      <p className="text-navy-900 dark:text-white font-medium text-sm">
-                        Click or drag to upload
-                      </p>
-                      <p className="text-xs text-navy-600 dark:text-navy-400 mt-1">
-                        JPG, PNG or GIF (max. 5MB)
-                      </p>
+                        <Icon className="w-4 h-4" style={{ color: active ? style.color : 'rgba(255,255,255,0.55)' }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-sm font-semibold leading-none ${active ? 'text-white' : 'text-white/75'}`}>{style.name}</p>
+                        <p className="text-[11px] text-white/40 mt-1 leading-none">{style.desc}</p>
+                      </div>
+                      {active && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-indigo-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Duration */}
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Duration</p>
+                <span className="text-sm font-bold text-white tabular-nums">{duration}s</span>
+              </div>
+              <input
+                type="range"
+                min="3"
+                max="10"
+                step="1"
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/10"
+                style={{ accentColor: '#6366f1' }}
+              />
+              <div className="flex justify-between mt-2">
+                {[3, 4, 5, 6, 7, 8, 9, 10].map((s) => (
+                  <span key={s} className={`text-[10px] font-medium ${s === duration ? 'text-indigo-400' : 'text-white/20'}`}>{s}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Generate — mobile only */}
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating || !previewUrl}
+            className="md:hidden w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 disabled:from-indigo-600/60 disabled:to-violet-700/60 disabled:cursor-not-allowed text-white text-sm font-bold transition-all shadow-lg shadow-indigo-500/30"
+          >
+            {isGenerating
+              ? <><Loader2 className="w-4 h-4 animate-spin" />Generating... {progress}%</>
+              : <><Video className="w-4 h-4" />Generate Video</>
+            }
+          </button>
+        </div>
+
+        {/* ════════════ RIGHT: Results ════════════ */}
+        <div className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden min-h-[560px] flex flex-col">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+            <p className="text-sm font-bold text-white">Generated Video</p>
+            {generatedVideo && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
+                  {activeMotion.name} · {duration}s
+                </span>
+                <button
+                  onClick={() => setShowPreviewDialog(true)}
+                  className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 flex items-center justify-center transition-all"
+                >
+                  <Maximize2 className="w-3.5 h-3.5 text-white/50" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 p-6">
+
+            {/* Loading */}
+            {isGenerating && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-white/40">Processing with AI...</span>
+                  <span className="text-indigo-400 font-mono font-bold">{progress}%</span>
+                </div>
+                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-violet-400 rounded-full transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <Skeleton className="w-full aspect-video rounded-xl bg-white/5 mt-4" />
+              </div>
+            )}
+
+            {/* Result */}
+            {!isGenerating && generatedVideo && (
+              <div className="space-y-5">
+                <div className="relative rounded-xl overflow-hidden border border-white/10 group bg-black/40">
+                  <video
+                    ref={videoRef}
+                    src={generatedVideo.videoUrl}
+                    poster={generatedVideo.thumbnailUrl}
+                    className="w-full aspect-video"
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
+                    controls={isPlaying}
+                  />
+                  {!isPlaying && (
+                    <div
+                      onClick={togglePlay}
+                      className="absolute inset-0 flex items-center justify-center cursor-pointer bg-black/40 group-hover:bg-black/50 transition-colors"
+                    >
+                      <div className="w-16 h-16 rounded-full bg-indigo-500/90 flex items-center justify-center shadow-2xl shadow-indigo-500/40 group-hover:scale-110 transition-transform duration-200">
+                        <Play className="w-7 h-7 text-white ml-1" />
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <div className="mt-4">
-                  <p className="text-sm text-navy-600 dark:text-navy-400 mb-3">
-                    {previewUrl ? 'Or choose a different sample:' : 'Or choose a sample:'}
-                  </p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {sampleImages.map((img, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSampleSelect(img)}
-                        className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                          previewUrl === img
-                            ? 'border-gold-500 ring-2 ring-gold-300'
-                            : 'border-navy-200 hover:border-gold-300 dark:border-navy-700'
-                        }`}
-                      >
-                        <img src={img} alt={`Sample ${idx + 1}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                <button
+                  onClick={handleDownload}
+                  className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white text-sm font-semibold transition-all shadow-lg shadow-indigo-500/25"
+                >
+                  <Download className="w-4 h-4" />Download MP4
+                </button>
+              </div>
+            )}
 
-            {/* ✅ UPDATED: Video Description dengan Enhance Button */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-gold-500" />
-                    <h3 className="text-lg font-semibold">Video Description (Optional)</h3>
-                  </div>
-                  <Button
-                    onClick={handleEnhancePrompt}
-                    disabled={isEnhancing || !videoPrompt.trim()}
-                    variant="outline"
-                    size="sm"
-                    className="border-gold-300 text-gold-700 hover:bg-gold-50 dark:border-gold-600 dark:text-gold-400"
-                  >
-                    {isEnhancing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Enhancing...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Enhance
-                      </>
-                    )}
-                  </Button>
+            {/* Empty state */}
+            {!isGenerating && !generatedVideo && (
+              <div className="h-full flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/8 flex items-center justify-center mb-5">
+                  <Video className="w-9 h-9 text-white/15" />
                 </div>
-                <Textarea
-                  value={videoPrompt}
-                  onChange={(e) => setVideoPrompt(e.target.value)}
-                  placeholder="Describe how you want the video to look... (e.g., 'Product rotating slowly with dramatic lighting')"
-                  className="min-h-[100px] resize-none"
-                  maxLength={500}
-                />
-                <p className="text-xs text-navy-600 dark:text-navy-400 mt-2">
-                  Leave empty for automatic generation based on the image
+                <h3 className="text-base font-bold text-white mb-2">Your video will appear here</h3>
+                <p className="text-sm text-white/35 max-w-[240px] leading-relaxed">
+                  Upload or select a product image, choose a motion style, then hit{' '}
+                  <span className="text-indigo-400 font-semibold">Generate</span>
                 </p>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Motion Style</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {motionStyles.map((style) => (
-                    <button
-                      key={style.id}
-                      type="button"
-                      onClick={() => setMotionStyle(style.id)}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        motionStyle === style.id
-                          ? 'border-gold-500 bg-gold-50 dark:bg-gold-900/20 shadow-lg'
-                          : 'border-navy-200 dark:border-navy-700 hover:border-gold-300'
-                      }`}
-                    >
-                      <div className="text-2xl mb-2">{style.icon}</div>
-                      <div className="font-semibold text-sm">{style.name}</div>
-                      <div className="text-xs text-navy-600 dark:text-navy-400">{style.desc}</div>
-                    </button>
+                <div className="mt-8 space-y-3 text-left">
+                  {[
+                    { n: '1', label: 'Upload your product image' },
+                    { n: '2', label: 'Choose motion style & duration' },
+                    { n: '3', label: 'Click Generate Video' },
+                  ].map((step) => (
+                    <div key={step.n} className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full border border-indigo-500/30 bg-indigo-500/8 flex items-center justify-center flex-shrink-0">
+                        <span className="text-[10px] font-bold text-indigo-400">{step.n}</span>
+                      </div>
+                      <span className="text-xs text-white/35">{step.label}</span>
+                    </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Duration: {duration}s</h3>
-                <input
-                  type="range"
-                  min="3"
-                  max="10"
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full accent-gold-500"
-                />
-                <div className="flex justify-between text-xs text-navy-600 dark:text-navy-400 mt-2">
-                  <span>3s</span><span>10s</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating || !previewUrl}
-              className="w-full h-14 text-lg font-semibold bg-gradient-gold hover:opacity-90 text-white shadow-lg disabled:opacity-50"
-            >
-              {isGenerating ? (
-                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Generating... {progress}%</>
-              ) : (
-                <><Video className="w-5 h-5 mr-2" /> Generate Video</>
-              )}
-            </Button>
-          </div>
-
-          {/* RIGHT SIDE - Preview */}
-          <div className="animate-slide-in-right">
-            <Card className="min-h-[600px]">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Preview</h3>
-
-                {isGenerating ? (
-                  <div className="space-y-4">
-                    <Skeleton className="w-full aspect-video rounded-lg" />
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Generating video...</span>
-                        <span className="font-medium">{progress}%</span>
-                      </div>
-                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                        <div className="h-full bg-gold-500 transition-all" style={{ width: `${progress}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                ) : generatedVideo ? (
-                  <div className="space-y-4">
-                    <div className="relative rounded-lg overflow-hidden bg-black group">
-                      <video
-                        ref={videoRef}
-                        src={generatedVideo.videoUrl}
-                        poster={generatedVideo.thumbnailUrl}
-                        className="w-full aspect-video"
-                        onPlay={() => setIsPlaying(true)}
-                        onPause={() => setIsPlaying(false)}
-                        onEnded={() => setIsPlaying(false)}
-                        controls
-                      />
-                      <div
-                        onClick={togglePlay}
-                        className="absolute inset-0 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity bg-black/30"
-                      >
-                        {isPlaying ? <Pause className="w-16 h-16 text-white" /> : <Play className="w-16 h-16 text-white" />}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Generated Video</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary">{motionStyle}</Badge>
-                          <Badge variant="outline">{duration}s</Badge>
-                        </div>
-                      </div>
-                      <Button size="sm" variant="outline" onClick={() => setShowPreviewDialog(true)}>
-                        <Maximize2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    <Button onClick={handleDownload} variant="outline" className="w-full">
-                      <Download className="w-4 h-4 mr-2" /> Download Video
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-16 h-16 rounded-full bg-gold-100 flex items-center justify-center mb-4">
-                      <Video className="w-8 h-8 text-gold-600" />
-                    </div>
-                    <p className="font-medium mb-2">Your video will appear here</p>
-                    <p className="text-sm text-muted-foreground max-w-sm">
-                      Upload an image and click Generate to create your video
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ✅ NEW: Enhance Prompt Dialog */}
-      <Dialog open={showEnhanceDialog} onOpenChange={setShowEnhanceDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      {/* ════════════ Enhance Dialog ════════════ */}
+      <Dialog open={showEnhDialog} onOpenChange={setShowEnhDialog}>
+        <DialogContent className="max-w-lg rounded-2xl border-white/8 bg-[#0a0a0a]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-navy-900 dark:text-white">
-              <Sparkles className="w-5 h-5 text-gold-500" />
-              Enhanced Video Prompt
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <Wand2 className="w-4 h-4 text-indigo-400" />
+              AI Enhanced Description
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4 mt-4">
-            {/* Original Prompt */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-navy-700 dark:text-navy-300">
-                Original Prompt
-              </label>
-              <div className="p-4 rounded-lg bg-navy-50 dark:bg-navy-800 border border-navy-200 dark:border-navy-700">
-                <p className="text-navy-900 dark:text-white">{videoPrompt}</p>
+
+          <div className="space-y-4 mt-1">
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold text-white/35 uppercase tracking-wider">Original</p>
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-white/8">
+                <p className="text-sm text-white/70 leading-relaxed">{videoPrompt}</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" />Enhanced
+              </p>
+              <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
+                <p className="text-sm text-white/80 leading-relaxed">{enhancedPrompt}</p>
               </div>
             </div>
 
-            {/* Enhanced Prompt */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gold-700 dark:text-gold-400">
-                Enhanced Prompt
-              </label>
-              <div className="p-4 rounded-lg bg-gold-50 dark:bg-gold-900/20 border-2 border-gold-300 dark:border-gold-600">
-                <p className="text-navy-900 dark:text-white">{enhancedPrompt}</p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <DialogFooter className="flex gap-3 pt-4">
+            <DialogFooter className="flex gap-2.5 pt-1">
               <Button
-                onClick={handleApplyEnhanced}
-                className="flex-1 bg-gradient-gold text-white hover:opacity-90"
+                onClick={() => { setVideoPrompt(enhancedPrompt); setShowEnhDialog(false); toast.success('Enhanced description applied'); }}
+                className="flex-1 h-10 bg-indigo-600 hover:bg-indigo-500 text-white border-0 rounded-xl font-semibold text-sm"
               >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Apply Enhanced
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />Apply Enhanced
               </Button>
               <Button
-                onClick={handleKeepOriginal}
+                onClick={() => { setShowEnhDialog(false); toast.info('Keeping original'); }}
                 variant="outline"
-                className="flex-1 border-navy-300 dark:border-navy-600"
+                className="flex-1 h-10 rounded-xl border-white/10 text-white/60 hover:text-white bg-transparent hover:bg-white/5 text-sm"
               >
                 Keep Original
               </Button>
@@ -593,24 +548,28 @@ export default function VideoGeneratorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog */}
+      {/* ════════════ Fullscreen Preview Dialog ════════════ */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Video Preview</DialogTitle>
+        <DialogContent className="max-w-4xl p-0 rounded-2xl border-white/8 bg-[#080808] overflow-hidden">
+          <DialogHeader className="px-5 py-4 border-b border-white/5 flex-row items-center justify-between">
+            <DialogTitle className="text-sm font-semibold text-white">Video Preview</DialogTitle>
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />Download
+            </button>
           </DialogHeader>
           {generatedVideo && (
-            <video
-              src={generatedVideo.videoUrl}
-              controls
-              autoPlay
-              className="w-full rounded-lg"
-            />
+            <div className="p-4">
+              <video
+                src={generatedVideo.videoUrl}
+                controls
+                autoPlay
+                className="w-full rounded-xl"
+              />
+            </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>Close</Button>
-            <Button onClick={handleDownload}><Download className="w-4 h-4 mr-2" /> Download</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

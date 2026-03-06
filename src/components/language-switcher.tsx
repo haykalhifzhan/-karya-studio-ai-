@@ -19,7 +19,7 @@ export function LanguageSwitcher() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative hover:bg-gold-100 dark:hover:bg-gold-900/20"
+          className="relative hover:bg-purple-100 dark:hover:bg-purple-900/20"
           title="Change Language / Ubah Bahasa"
         >
           <Globe className="h-5 w-5" />
@@ -30,22 +30,22 @@ export function LanguageSwitcher() {
         <DropdownMenuItem
           onClick={() => setLanguage('id')}
           className={`cursor-pointer flex items-center gap-2 ${
-            language === 'id' ? 'bg-gold-50 dark:bg-gold-900/20' : ''
+            language === 'id' ? 'bg-purple-50 dark:bg-purple-900/20' : ''
           }`}
         >
           <span className="text-lg">🇮🇩</span>
           <span>Bahasa Indonesia</span>
-          {language === 'id' && <span className="ml-auto text-gold-600">✓</span>}
+          {language === 'id' && <span className="ml-auto text-purple-600">✓</span>}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setLanguage('en')}
           className={`cursor-pointer flex items-center gap-2 ${
-            language === 'en' ? 'bg-gold-50 dark:bg-gold-900/20' : ''
+            language === 'en' ? 'bg-purple-50 dark:bg-purple-900/20' : ''
           }`}
         >
           <span className="text-lg">🇬🇧</span>
           <span>English</span>
-          {language === 'en' && <span className="ml-auto text-gold-600">✓</span>}
+          {language === 'en' && <span className="ml-auto text-purple-600">✓</span>}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

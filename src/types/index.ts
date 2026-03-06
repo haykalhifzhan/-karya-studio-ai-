@@ -8,7 +8,7 @@ export type TemplateCategory = 'food' | 'fashion' | 'handicrafts' | 'electronics
 export type PhotoStyle = 'studio' | 'natural' | 'premium' | 'cheerful';
 export type MotionStyle = 'zoom-in' | 'rotation-360' | 'parallax' | 'smoke' | 'smooth-transition' | 'cinematic-pan';
 export type VideoDuration = 15 | 30;
-export type AchievementRarity = 'bronze' | 'silver' | 'gold' | 'platinum';
+export type AchievementRarity = 'bronze' | 'silver' | 'space' | 'platinum';
 
 // ========================
 // Core Models

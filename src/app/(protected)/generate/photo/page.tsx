@@ -1,11 +1,25 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Camera, Sparkles, Download, Heart, Loader2, Image as ImageIcon, Aperture, Sun, Crown, Smile, Upload, X, LayoutTemplate, Maximize2 } from 'lucide-react';
+import {
+  Camera,
+  Sparkles,
+  Download,
+  Loader2,
+  Image as ImageIcon,
+  Aperture,
+  Sun,
+  Crown,
+  Smile,
+  Upload,
+  X,
+  Maximize2,
+  ChevronLeft,
+  ChevronRight,
+  Wand2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -17,79 +31,26 @@ import {
 } from '@/components/ui/select';
 import { useGenerationStore } from '@/stores/generationStore';
 import { toast } from 'sonner';
-import type { PhotoStyle, Generation } from '@/types';
+import type { PhotoStyle } from '@/types';
 
-interface StyleOption {
-  id: PhotoStyle;
-  name: string;
-  description: string;
-  icon: typeof Aperture;
-}
+/* ─── Data ─────────────────────────────────────────────────────── */
 
-const STYLE_OPTIONS: StyleOption[] = [
-  {
-    id: 'studio',
-    name: 'Studio',
-    description: 'Clean professional setup',
-    icon: Aperture,
-  },
-  {
-    id: 'natural',
-    name: 'Natural',
-    description: 'Outdoor natural lighting',
-    icon: Sun,
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    description: 'Luxury high-end aesthetic',
-    icon: Crown,
-  },
-  {
-    id: 'cheerful',
-    name: 'Cheerful',
-    description: 'Bright colorful and fun',
-    icon: Smile,
-  },
+const STYLE_OPTIONS = [
+  { id: 'studio' as PhotoStyle, name: 'Studio', description: 'Clean professional setup', icon: Aperture, color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  { id: 'natural' as PhotoStyle, name: 'Natural', description: 'Warm outdoor lighting', icon: Sun, color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+  { id: 'premium' as PhotoStyle, name: 'Premium', description: 'Luxury high-end aesthetic', icon: Crown, color: '#fbbf24', bg: 'rgba(251,191,36,0.12)' },
+  { id: 'cheerful' as PhotoStyle, name: 'Cheerful', description: 'Bright colorful and fun', icon: Smile, color: '#f472b6', bg: 'rgba(244,114,182,0.12)' },
 ];
 
 const SIZE_OPTIONS = [
-  { 
-    label: 'Square (1:1)', 
-    value: '1024x1024', 
-    actualSize: '1328*1328',
-    desc: 'Instagram post, product showcase',
-    icon: '📦'
-  },
-  { 
-    label: 'Landscape (16:9)', 
-    value: '1664x928', 
-    actualSize: '1664*928',
-    desc: 'Banner, video thumbnail',
-    icon: '🖼️'
-  },
-  { 
-    label: 'Standard (4:3)', 
-    value: '1472x1104', 
-    actualSize: '1472*1104',
-    desc: 'Classic photo ratio',
-    icon: '📐'
-  },
-  { 
-    label: 'Portrait (3:4)', 
-    value: '1104x1472', 
-    actualSize: '1104*1472',
-    desc: 'Product portrait, Pinterest',
-    icon: '📱'
-  },
-  { 
-    label: 'Vertical (9:16)', 
-    value: '928x1664', 
-    actualSize: '928*1664',
-    desc: 'Story, Reels, TikTok',
-    icon: '🎬'
-  },
+  { label: 'Square', ratio: '1:1', value: '1024x1024', size: '1328×1328', desc: 'Instagram · Product' },
+  { label: 'Landscape', ratio: '16:9', value: '1664x928', size: '1664×928', desc: 'Banner · Thumbnail' },
+  { label: 'Standard', ratio: '4:3', value: '1472x1104', size: '1472×1104', desc: 'Classic photo ratio' },
+  { label: 'Portrait', ratio: '3:4', value: '1104x1472', size: '1104×1472', desc: 'Pinterest · Portrait' },
+  { label: 'Vertical', ratio: '9:16', value: '928x1664', size: '928×1664', desc: 'Story · Reels' },
 ];
+
+/* ─── Component ─────────────────────────────────────────────────── */
 
 export default function PhotoGeneratorPage() {
   const [prompt, setPrompt] = useState('');
@@ -98,690 +59,557 @@ export default function PhotoGeneratorPage() {
   const [variations, setVariations] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<string[]>([]);
   const [enhancedPrompt, setEnhancedPrompt] = useState('');
-  const [showComparisonDialog, setShowComparisonDialog] = useState(false);
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
-  
-  // ✅ NEW: Preview Dialog State
+  const [showEnhDialog, setShowEnhDialog] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [previewIndex, setPreviewIndex] = useState<number>(0);
-  
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addGeneration = useGenerationStore((s) => s.addGeneration);
 
-  const addGeneration = useGenerationStore((state) => state.addGeneration);
+  const MAX_CHARS = 500;
+  const activeSize = SIZE_OPTIONS.find((s) => s.value === selectedSize)!;
+  const activeStyle = STYLE_OPTIONS.find((s) => s.id === selectedStyle)!;
 
-  const maxChars = 500;
-  const charCount = prompt.length;
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please upload an image file (JPG, PNG, GIF)');
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size must be less than 5MB');
-        return;
-      }
-      setUploadedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      toast.success('Reference image uploaded');
-    }
+  /* ── Upload ─────────────────────────────────────────────────── */
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Please upload an image file'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('File must be less than 5MB'); return; }
+    setUploadedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    toast.success('Reference image added');
   };
-
-  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please drop an image file (JPG, PNG, GIF)');
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size must be less than 5MB');
-        return;
-      }
-      setUploadedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      toast.success('Reference image uploaded');
-    }
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-  };
-
-  const handleRemoveFile = () => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.[0]) processFile(e.target.files[0]); };
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]); };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
+  const removeFile = () => {
     setUploadedFile(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleEnhancePrompt = async () => {
-    if (!prompt.trim()) {
-      toast.error('Please enter a prompt first');
-      return;
-    }
-
+  /* ── Enhance ─────────────────────────────────────────────────── */
+  const handleEnhance = async () => {
+    if (!prompt.trim()) { toast.error('Enter a prompt first'); return; }
     setIsEnhancing(true);
     try {
-      const response = await fetch('/api/enhance-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setEnhancedPrompt(data.enhanced);
-        setShowComparisonDialog(true);
-      } else {
-        toast.error('Failed to enhance prompt');
-      }
-    } catch (error) {
-      console.error('Enhance error:', error);
-      toast.error('Error enhancing prompt');
-    } finally {
-      setIsEnhancing(false);
-    }
+      const res = await fetch('/api/enhance-prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+      const data = await res.json();
+      if (data.success) { setEnhancedPrompt(data.enhanced); setShowEnhDialog(true); }
+      else toast.error('Failed to enhance prompt');
+    } catch { toast.error('Error enhancing prompt'); }
+    finally { setIsEnhancing(false); }
   };
 
-  const handleApplyEnhanced = () => {
-    setPrompt(enhancedPrompt);
-    setShowComparisonDialog(false);
-    toast.success('Enhanced prompt applied');
-  };
-
-  const handleKeepOriginal = () => {
-    setShowComparisonDialog(false);
-    toast.info('Keeping original prompt');
-  };
-
+  /* ── Generate ────────────────────────────────────────────────── */
   const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      toast.error('Please enter a product description');
-      return;
-    }
+    if (!prompt.trim()) { toast.error('Please enter a product description'); return; }
+    setIsGenerating(true); setProgress(0); setResults([]);
 
-    setIsGenerating(true);
-    setGenerationProgress(0);
-    setResults([]);
-
-    const progressInterval = setInterval(() => {
-      setGenerationProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(progressInterval);
-          return 90;
-        }
-        return prev + (90 / 30);
-      });
+    const tick = setInterval(() => {
+      setProgress((p) => { if (p >= 90) { clearInterval(tick); return 90; } return p + 3; });
     }, 100);
 
     try {
-      console.log('📤 Sending request to /api/generate/photo...');
-      const response = await fetch('/api/generate/photo', {
+      const res = await fetch('/api/generate/photo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          style: selectedStyle,
-          variations,
-          size: selectedSize,
-        }),
+        body: JSON.stringify({ prompt, style: selectedStyle, variations, size: selectedSize }),
       });
-
-      console.log('📥 Response status:', response.status);
-      const data = await response.json();
-      console.log('📥 Response data:', data);
+      const data = await res.json();
+      clearInterval(tick); setProgress(100);
 
       if (data.success) {
-        clearInterval(progressInterval);
-        setGenerationProgress(100);
-        
-        console.log('✅ Generation successful!');
-        console.log('Result URLs:', data.generation?.resultUrls);
-        
-        if (data.generation) {
-          addGeneration(data.generation);
-        }
-        
-        const resultUrls = data.generation?.resultUrls || [];
-        if (resultUrls.length > 0) {
-          setResults(resultUrls);
-          toast.success(`Generated ${resultUrls.length} photo(s) successfully!`);
-        } else {
-          toast.warning('No images were generated. Try a different prompt.');
-          setResults([]);
-        }
+        if (data.generation) addGeneration(data.generation);
+        const urls: string[] = data.generation?.resultUrls || [];
+        if (urls.length) { setResults(urls); toast.success(`${urls.length} photo${urls.length > 1 ? 's' : ''} generated!`); }
+        else toast.warning('No images returned — try a different prompt');
       } else {
-        clearInterval(progressInterval);
-        console.error('❌ Generation failed:', data.message);
-        toast.error(data.message || 'Failed to generate photos', {
-          description: data.hint || data.error || '',
-        });
-        setResults([]);
+        toast.error(data.message || 'Generation failed', { description: data.hint || '' });
       }
-    } catch (error) {
-      clearInterval(progressInterval);
-      console.error('❌ Generation error:', error);
-      toast.error('Error generating photos', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
-      setResults([]);
+    } catch (err) {
+      clearInterval(tick);
+      toast.error('Generation error', { description: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
-      setIsGenerating(false);
-      setTimeout(() => setGenerationProgress(0), 1000);
+      setIsGenerating(false); setTimeout(() => setProgress(0), 800);
     }
   };
 
-  // ✅ NEW: Open Preview Dialog
-  const handlePreview = (imageUrl: string, index: number) => {
-    setPreviewImage(imageUrl);
-    setPreviewIndex(index);
-  };
-
-  const handleDownload = async (imageUrl: string, index: number) => {
+  /* ── Download ────────────────────────────────────────────────── */
+  const handleDownload = async (url: string, idx: number) => {
     try {
-      const response = await fetch(imageUrl, {
-        method: 'GET',
-        headers: {},
-        mode: 'cors',
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob),
+        download: `karya-photo-${Date.now()}-${idx + 1}.png`,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `karya-photo-${Date.now()}-${index + 1}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      toast.success('Photo downloaded successfully!');
-    } catch (error) {
-      console.error('Download error (method 1):', error);
-      
-      try {
-        window.open(imageUrl, '_blank');
-        toast.success('Photo opened in new tab. Right-click and save!');
-      } catch (fallbackError) {
-        console.error('Download error (method 2):', fallbackError);
-        toast.error('Failed to download. Try right-clicking and "Save Image As"');
-      }
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      toast.success('Downloaded!');
+    } catch {
+      window.open(url, '_blank');
+      toast.success('Opened in new tab — right-click to save');
     }
   };
 
-  const toggleFavorite = (index: number) => {
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(index)) {
-        newFavorites.delete(index);
-        toast.info('Removed from favorites');
-      } else {
-        newFavorites.add(index);
-        toast.success('Added to favorites');
-      }
-      return newFavorites;
-    });
+  /* ── Preview nav ─────────────────────────────────────────────── */
+  const navigate = (dir: 1 | -1) => {
+    const next = (previewIndex + dir + results.length) % results.length;
+    setPreviewIndex(next); setPreviewImage(results[next]);
   };
 
-  // ✅ NEW: Navigate preview
-  const handleNextPreview = () => {
-    if (results.length > 0) {
-      const nextIndex = (previewIndex + 1) % results.length;
-      setPreviewIndex(nextIndex);
-      setPreviewImage(results[nextIndex]);
-    }
-  };
-
-  const handlePrevPreview = () => {
-    if (results.length > 0) {
-      const prevIndex = (previewIndex - 1 + results.length) % results.length;
-      setPreviewIndex(prevIndex);
-      setPreviewImage(results[prevIndex]);
-    }
-  };
-
+  /* ═══════════════════════════════ JSX ═══════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-navy-50 via-white to-gold-50 dark:from-navy-950 dark:via-navy-900 dark:to-navy-800 p-4 md:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8 animate-fade-in-up">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-3 bg-gradient-gold rounded-xl shadow-lg">
-              <Camera className="w-8 h-8 text-white" />
+    <div className="min-h-screen p-6 lg:p-8 max-w-7xl mx-auto">
+
+      {/* Ambient background glows — matching dashboard */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        <div className="absolute -top-20 -left-20 w-[500px] h-[500px] bg-purple-600/6 blur-[140px] rounded-full" />
+        <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-violet-600/4 blur-[120px] rounded-full" />
+      </div>
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between mb-8 animate-fade-in-up">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="relative">
+              <div className="absolute inset-0 bg-purple-400/40 blur-lg rounded-xl" />
+              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-violet-400 via-purple-500 to-purple-600 flex items-center justify-center shadow-xl shadow-purple-500/40">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-navy-900 dark:text-white">
-                Photo Generator
-              </h1>
-              <p className="text-navy-600 dark:text-navy-300">
-                Create stunning product photos with AI
-              </p>
+              <h1 className="text-2xl font-black text-white tracking-tight">Photo Generator</h1>
+              <p className="text-sm text-white/40">Create stunning product photos with AI</p>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-          <div className="space-y-6 animate-slide-in-left">
-            <Card className="border-navy-200 dark:border-navy-700 shadow-lg">
-              <CardContent className="p-6 space-y-6">
-                
-                <div>
-                  <label className="text-sm font-semibold text-navy-900 dark:text-white mb-3 block">
-                    Reference Image (Optional)
-                  </label>
-                  <div
-                    onClick={() => !previewUrl && fileInputRef.current?.click()}
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    className={`relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
-                      previewUrl 
-                        ? 'border-gold-300 bg-gold-50 dark:bg-gold-900/10' 
-                        : 'border-navy-200 hover:border-gold-300 dark:border-navy-700'
-                    }`}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    
-                    {previewUrl ? (
-                      <div className="relative aspect-square rounded-lg overflow-hidden">
-                        <img
-                          src={previewUrl}
-                          alt="Reference"
-                          className="w-full h-full object-cover"
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveFile();
-                          }}
-                          className="absolute top-2 right-2"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="py-8">
-                        <Upload className="w-10 h-10 mx-auto mb-2 text-navy-400" />
-                        <p className="text-navy-900 dark:text-white font-medium text-sm">
-                          Click or drag to upload reference
-                        </p>
-                        <p className="text-xs text-navy-600 dark:text-navy-400 mt-1">
-                          JPG, PNG or GIF (max. 5MB)
-                        </p>
-                      </div>
-                    )}
+        {/* Generation button — top right on desktop */}
+        <button
+          onClick={handleGenerate}
+          disabled={isGenerating || !prompt.trim()}
+          className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-400 hover:to-purple-500 disabled:from-violet-500/50 disabled:to-purple-600/50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all hover:scale-105 shadow-lg shadow-purple-500/30"
+        >
+          {isGenerating
+            ? <><Loader2 className="w-4 h-4 animate-spin" />{Math.round(progress)}%</>
+            : <><Sparkles className="w-4 h-4" />Generate Photos</>
+          }
+        </button>
+      </div>
+
+      {/* Progress bar (global, under header) */}
+      {isGenerating && (
+        <div className="h-0.5 w-full bg-white/5 rounded-full overflow-hidden mb-8">
+          <div
+            className="h-full bg-gradient-to-r from-purple-500 to-violet-400 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+
+      {/* ── Two-column layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+
+        {/* ════════════ LEFT: Controls ════════════ */}
+        <div className="space-y-3">
+
+          {/* ① Reference image */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+            <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">
+              Reference Image <span className="normal-case font-normal">· optional</span>
+            </p>
+
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+
+            {previewUrl ? (
+              <div
+                className="relative rounded-xl overflow-hidden border border-white/10 group cursor-pointer"
+                onClick={removeFile}
+              >
+                <img src={previewUrl} alt="Reference" className="w-full aspect-video object-cover" />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
+                  <X className="w-5 h-5 text-white" />
+                  <span className="text-white text-sm font-semibold">Remove</span>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                className="border-2 border-dashed border-white/10 hover:border-purple-500/40 rounded-xl transition-all duration-200 cursor-pointer group"
+              >
+                <div className="flex flex-col items-center justify-center py-8 gap-2.5">
+                  <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-purple-500/10 group-hover:border-purple-500/20 transition-all duration-200">
+                    <Upload className="w-5 h-5 text-white/30 group-hover:text-purple-400 transition-colors" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-white/60 group-hover:text-white/80 transition-colors">Drop image here or click to browse</p>
+                    <p className="text-xs text-white/25 mt-0.5">JPG, PNG, GIF · max 5MB</p>
                   </div>
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-semibold text-navy-900 dark:text-white">
-                      Product Description
-                    </label>
-                    <Badge
-                      variant={charCount > maxChars ? 'destructive' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {charCount} / {maxChars}
-                    </Badge>
-                  </div>
-                  <Textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value.slice(0, maxChars))}
-                    placeholder="Describe your product in detail..."
-                    className="min-h-[120px] resize-none border-navy-200 dark:border-navy-700 focus:ring-gold-500 focus:border-gold-500"
-                    maxLength={maxChars}
-                  />
-                  
-                  <div className="mt-3">
-                    <Button
-                      onClick={handleEnhancePrompt}
-                      disabled={isEnhancing || !prompt.trim()}
-                      variant="outline"
-                      className="w-full border-gold-300 text-gold-700 hover:bg-gold-50 dark:border-gold-600 dark:text-gold-400 dark:hover:bg-navy-800"
-                    >
-                      {isEnhancing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Enhancing...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Enhance with AI
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold text-navy-900 dark:text-white mb-3 block">
-                    <div className="flex items-center gap-2">
-                      <LayoutTemplate className="w-4 h-4" />
-                      Image Size
-                    </div>
-                  </label>
-                  <Select value={selectedSize} onValueChange={setSelectedSize}>
-                    <SelectTrigger className="border-navy-200 dark:border-navy-700 focus:ring-gold-500 focus:border-gold-500">
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SIZE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          <div className="flex items-center gap-2">
-                            <span>{option.icon}</span>
-                            <div>
-                              <div className="font-medium">{option.label}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {option.actualSize} • {option.desc}
-                              </div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold text-navy-900 dark:text-white mb-3 block">
-                    Style
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {STYLE_OPTIONS.map((style) => {
-                      const Icon = style.icon;
-                      const isSelected = selectedStyle === style.id;
-                      return (
-                        <button
-                          key={style.id}
-                          onClick={() => setSelectedStyle(style.id)}
-                          className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-                            isSelected
-                              ? 'border-gold-500 bg-gold-50 dark:bg-gold-900/20 shadow-lg scale-105'
-                              : 'border-navy-200 dark:border-navy-700 hover:border-gold-300 dark:hover:border-gold-600'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div
-                              className={`p-2 rounded-lg ${
-                                isSelected
-                                  ? 'bg-gold-500 text-white'
-                                  : 'bg-navy-100 dark:bg-navy-800 text-navy-600 dark:text-navy-300'
-                              }`}
-                            >
-                              <Icon className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-navy-900 dark:text-white text-sm">
-                                {style.name}
-                              </div>
-                              <div className="text-xs text-navy-600 dark:text-navy-400 line-clamp-2">
-                                {style.description}
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold text-navy-900 dark:text-white mb-3 block">
-                    Number of Variations
-                  </label>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4].map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => setVariations(num)}
-                        className={`flex-1 py-3 px-4 rounded-lg border-2 font-semibold transition-all duration-200 ${
-                          variations === num
-                            ? 'border-gold-500 bg-gold-500 text-white shadow-lg scale-105'
-                            : 'border-navy-200 dark:border-navy-700 text-navy-700 dark:text-navy-300 hover:border-gold-300 dark:hover:border-gold-600'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <Button
-                    onClick={handleGenerate}
-                    disabled={isGenerating || !prompt.trim()}
-                    className="w-full h-14 text-lg font-semibold bg-gradient-gold hover:opacity-90 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isGenerating ? (
-                      <div className="flex items-center gap-3">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>Generating... {Math.round(generationProgress)}%</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Camera className="w-5 h-5" />
-                        Generate Photos
-                      </div>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            )}
           </div>
 
-          <div className="animate-slide-in-right">
-            <Card className="border-navy-200 dark:border-navy-700 shadow-lg min-h-[600px]">
-              <CardContent className="p-6">
-                <h2 className="text-xl font-bold text-navy-900 dark:text-white mb-4">
-                  Generated Photos
-                </h2>
+          {/* ② Prompt */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Product Description</p>
+              <span className={`text-xs font-mono ${prompt.length > MAX_CHARS * 0.9 ? 'text-rose-400' : 'text-white/25'}`}>
+                {prompt.length}/{MAX_CHARS}
+              </span>
+            </div>
 
-                {isGenerating && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {Array.from({ length: variations }).map((_, i) => (
-                      <div key={i} className="space-y-3">
-                        <Skeleton className="w-full aspect-square rounded-xl shimmer-bg animate-shimmer" />
-                        <Skeleton className="w-full h-10 rounded-lg" />
-                      </div>
-                    ))}
-                  </div>
-                )}
+            <Textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value.slice(0, MAX_CHARS))}
+              placeholder="e.g. Sleek matte black perfume bottle on white marble with soft warm lighting and subtle shadows..."
+              className="min-h-[120px] resize-none bg-white/[0.03] border-white/8 text-white/90 placeholder:text-white/20 focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 rounded-xl text-sm leading-relaxed"
+              maxLength={MAX_CHARS}
+            />
 
-                {!isGenerating && results.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {results.map((imageUrl, index) => (
-                      <div
-                        key={index}
-                        className="group relative rounded-xl overflow-hidden border-2 border-navy-200 dark:border-navy-700 hover:border-gold-500 dark:hover:border-gold-500 transition-all duration-300 hover:shadow-xl animate-scale-in"
-                        style={{ animationDelay: `${index * 100}ms` }}
-                      >
-                        <div className="aspect-square bg-navy-100 dark:bg-navy-800">
-                          <img
-                            src={imageUrl}
-                            alt={`Generated photo ${index + 1}`}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        </div>
+            {/* Char bar */}
+            <div className="mt-2.5 h-0.5 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-200 ${prompt.length > MAX_CHARS * 0.9 ? 'bg-rose-500' : 'bg-purple-500/50'}`}
+                style={{ width: `${(prompt.length / MAX_CHARS) * 100}%` }}
+              />
+            </div>
 
-                        <div className="absolute inset-0 bg-gradient-to-t from-navy-900/90 via-navy-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <div className="absolute bottom-0 left-0 right-0 p-4 flex items-center justify-between">
-                            <Button
-                              size="sm"
-                              onClick={() => handlePreview(imageUrl, index)}
-                              className="bg-white text-navy-900 hover:bg-gold-100 shadow-lg"
-                            >
-                              <Maximize2 className="w-4 h-4 mr-2" />
-                              Preview
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleDownload(imageUrl, index)}
-                              className="bg-gold-500 text-white hover:bg-gold-600 shadow-lg"
-                            >
-                              <Download className="w-4 h-4 mr-2" />
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            <button
+              onClick={handleEnhance}
+              disabled={isEnhancing || !prompt.trim()}
+              className="mt-3 w-full flex items-center justify-center gap-2 h-9 rounded-xl border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/35 text-purple-400 hover:text-purple-300 text-xs font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {isEnhancing
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Enhancing...</>
+                : <><Wand2 className="w-3.5 h-3.5" />Enhance prompt with AI</>
+              }
+            </button>
+          </div>
 
-                {!isGenerating && results.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-[500px] text-center">
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gold-100 to-gold-200 dark:from-gold-900/20 dark:to-gold-800/20 flex items-center justify-center mb-6 animate-float">
-                      <ImageIcon className="w-16 h-16 text-gold-600 dark:text-gold-400" />
+          {/* ③ Size + Style + Variations grouped */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.02] divide-y divide-white/5 overflow-hidden">
+
+            {/* Size */}
+            <div className="p-5">
+              <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">Image Size</p>
+              <Select value={selectedSize} onValueChange={setSelectedSize}>
+                <SelectTrigger className="h-11 text-sm bg-white/[0.03] border-white/8 text-white hover:border-white/15 focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 rounded-xl transition-all">
+                  <SelectValue>
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-semibold text-white">{activeSize.label}</span>
+                      <span className="text-white/35 text-xs">{activeSize.ratio} · {activeSize.size}</span>
                     </div>
-                    <h3 className="text-xl font-semibold text-navy-900 dark:text-white mb-2">
-                      Your photos will appear here
-                    </h3>
-                    <p className="text-navy-600 dark:text-navy-400 max-w-md">
-                      Enter a product description, choose a style and size, then click generate
-                    </p>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-white/10 bg-[#0d0d0d] shadow-2xl">
+                  {SIZE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="rounded-lg cursor-pointer text-white/80 focus:bg-white/8 focus:text-white">
+                      <div className="flex items-center gap-3 py-0.5">
+                        <div className="font-semibold text-sm">{opt.label}</div>
+                        <div className="text-white/35 text-xs">{opt.ratio}</div>
+                        <div className="ml-auto text-white/25 text-xs">{opt.desc}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Style */}
+            <div className="p-5">
+              <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">Visual Style</p>
+              <div className="grid grid-cols-2 gap-2">
+                {STYLE_OPTIONS.map((style) => {
+                  const Icon = style.icon;
+                  const active = selectedStyle === style.id;
+                  return (
+                    <button
+                      key={style.id}
+                      onClick={() => setSelectedStyle(style.id)}
+                      className={`relative flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 ${active
+                        ? 'border-purple-500/50 bg-purple-500/12'
+                        : 'border-white/12 bg-white/6 hover:bg-white/10 hover:border-white/20'
+                        }`}
+                    >
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ background: active ? style.bg : 'rgba(255,255,255,0.10)' }}
+                      >
+                        <Icon className="w-4 h-4" style={{ color: active ? style.color : 'rgba(255,255,255,0.55)' }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-sm font-semibold leading-none ${active ? 'text-white' : 'text-white/75'}`}>{style.name}</p>
+                        <p className="text-[11px] text-white/40 mt-1 leading-none">{style.description}</p>
+                      </div>
+                      {active && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-purple-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Variations */}
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Variations</p>
+                <span className="text-xs text-white/25">{variations} image{variations > 1 ? 's' : ''}</span>
+              </div>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setVariations(n)}
+                    className={`flex-1 h-10 rounded-xl text-sm font-bold border transition-all duration-200 ${variations === n
+                      ? 'bg-gradient-to-b from-violet-500 to-purple-600 border-purple-500/80 text-white shadow-lg shadow-purple-500/30'
+                      : 'border-white/15 bg-white/8 text-white/65 hover:text-white hover:bg-white/14 hover:border-white/25'
+                      }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Generate — mobile only */}
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating || !prompt.trim()}
+            className="md:hidden w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-400 hover:to-purple-500 disabled:from-violet-600/60 disabled:to-purple-700/60 disabled:cursor-not-allowed text-white text-sm font-bold transition-all shadow-lg shadow-purple-500/30"
+          >
+            {isGenerating
+              ? <><Loader2 className="w-4 h-4 animate-spin" />Generating... {Math.round(progress)}%</>
+              : <><Sparkles className="w-4 h-4" />Generate Photos</>
+            }
+          </button>
+        </div>
+
+        {/* ════════════ RIGHT: Results ════════════ */}
+        <div className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden min-h-[560px] flex flex-col">
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+            <p className="text-sm font-bold text-white">Generated Photos</p>
+            {results.length > 0 && (
+              <span className="text-xs font-semibold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">
+                {results.length} result{results.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          <div className="flex-1 p-6">
+
+            {/* Loading */}
+            {isGenerating && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-white/40">Processing with AI...</span>
+                  <span className="text-purple-400 font-mono font-bold">{Math.round(progress)}%</span>
+                </div>
+                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-purple-500 to-violet-400 rounded-full transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  {Array.from({ length: variations }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="aspect-square w-full rounded-xl bg-white/5" />
+                      <Skeleton className="h-9 w-full rounded-lg bg-white/5" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Results grid */}
+            {!isGenerating && results.length > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                {results.map((url, i) => (
+                  <div
+                    key={i}
+                    className="group relative rounded-xl overflow-hidden border border-white/5 hover:border-purple-500/30 transition-all duration-300 hover:-translate-y-0.5 animate-scale-in"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    <div className="aspect-square bg-white/5">
+                      <img
+                        src={url}
+                        alt={`Photo ${i + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                        loading="lazy"
+                      />
+                    </div>
+
+                    {/* Index badge */}
+                    <div className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-sm text-white/80 text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/10">
+                      {i + 1}/{results.length}
+                    </div>
+
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-250 flex items-end px-3 pb-3 gap-2">
+                      <button
+                        onClick={() => { setPreviewImage(url); setPreviewIndex(i); }}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-white/15 hover:bg-white/22 border border-white/20 text-white text-xs font-semibold backdrop-blur-sm transition-colors"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />Preview
+                      </button>
+                      <button
+                        onClick={() => handleDownload(url, i)}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />Save
+                      </button>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!isGenerating && results.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/8 flex items-center justify-center mb-5">
+                  <ImageIcon className="w-9 h-9 text-white/15" />
+                </div>
+                <h3 className="text-base font-bold text-white mb-2">Your photos will appear here</h3>
+                <p className="text-sm text-white/35 max-w-[220px] leading-relaxed">
+                  Fill in your description on the left, pick a style, then hit{' '}
+                  <span className="text-purple-400 font-semibold">Generate</span>
+                </p>
+
+                {/* Step guide */}
+                <div className="mt-8 space-y-3 text-left">
+                  {[
+                    { n: '1', label: 'Describe your product' },
+                    { n: '2', label: 'Choose style & size' },
+                    { n: '3', label: 'Click Generate Photos' },
+                  ].map((step) => (
+                    <div key={step.n} className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full border border-purple-500/30 bg-purple-500/8 flex items-center justify-center flex-shrink-0">
+                        <span className="text-[10px] font-bold text-purple-400">{step.n}</span>
+                      </div>
+                      <span className="text-xs text-white/35">{step.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ✅ NEW: Preview Dialog */}
+      {/* ════════════ Preview Lightbox ════════════ */}
       <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Preview Photo {previewIndex + 1} of {results.length}</span>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDownload(previewImage!, previewIndex)}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-              </div>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-2xl border-white/8 bg-[#080808]">
+          <DialogHeader className="flex-row items-center justify-between px-5 py-4 border-b border-white/5 flex-shrink-0">
+            <DialogTitle className="text-sm font-semibold text-white">
+              Photo {previewIndex + 1} of {results.length}
             </DialogTitle>
+            <button
+              onClick={() => handleDownload(previewImage!, previewIndex)}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />Download
+            </button>
           </DialogHeader>
-          
-          <div className="relative flex items-center justify-center">
-            {/* Previous Button */}
+
+          <div className="relative flex-1 flex items-center justify-center p-5 min-h-0">
             {results.length > 1 && (
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={handlePrevPreview}
-                className="absolute left-2 z-10"
+              <button
+                onClick={() => navigate(-1)}
+                className="absolute left-3 z-10 w-9 h-9 rounded-full bg-white/8 border border-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
               >
-                ←
-              </Button>
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </button>
             )}
-            
-            {/* Image */}
-            <div className="max-h-[70vh] overflow-auto">
+
+            <div className="flex items-center justify-center max-h-[65vh] overflow-auto">
               {previewImage && (
                 <img
                   src={previewImage}
-                  alt={`Generated photo ${previewIndex + 1}`}
-                  className="max-w-full h-auto rounded-lg"
+                  alt={`Photo ${previewIndex + 1}`}
+                  className="max-w-full max-h-[65vh] object-contain rounded-xl shadow-2xl"
                 />
               )}
             </div>
-            
-            {/* Next Button */}
+
             {results.length > 1 && (
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={handleNextPreview}
-                className="absolute right-2 z-10"
+              <button
+                onClick={() => navigate(1)}
+                className="absolute right-3 z-10 w-9 h-9 rounded-full bg-white/8 border border-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
               >
-                →
-              </Button>
+                <ChevronRight className="w-5 h-5 text-white" />
+              </button>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewImage(null)}>
-              Close
-            </Button>
-          </DialogFooter>
+          {/* Thumbnail strip */}
+          {results.length > 1 && (
+            <div className="flex items-center justify-center gap-2 py-3 px-5 border-t border-white/5 flex-shrink-0">
+              {results.map((url, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => { setPreviewIndex(idx); setPreviewImage(url); }}
+                  className={`w-11 h-11 rounded-lg overflow-hidden border-2 transition-all duration-150 ${idx === previewIndex
+                    ? 'border-purple-500 scale-110 shadow-lg shadow-purple-500/25'
+                    : 'border-white/10 opacity-40 hover:opacity-75 hover:border-white/25'
+                    }`}
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
-      {/* Prompt Comparison Dialog */}
-      <Dialog open={showComparisonDialog} onOpenChange={setShowComparisonDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      {/* ════════════ Enhance Dialog ════════════ */}
+      <Dialog open={showEnhDialog} onOpenChange={setShowEnhDialog}>
+        <DialogContent className="max-w-lg rounded-2xl border-white/8 bg-[#0a0a0a]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-navy-900 dark:text-white">
-              <Sparkles className="w-5 h-5 text-gold-500" />
-              Enhanced Prompt Suggestion
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <Wand2 className="w-4 h-4 text-purple-400" />
+              AI Enhanced Prompt
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-navy-700 dark:text-navy-300">
-                Original Prompt
-              </label>
-              <div className="p-4 rounded-lg bg-navy-50 dark:bg-navy-800 border border-navy-200 dark:border-navy-700">
-                <p className="text-navy-900 dark:text-white">{prompt}</p>
+
+          <div className="space-y-4 mt-1">
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold text-white/35 uppercase tracking-wider">Original</p>
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-white/8">
+                <p className="text-sm text-white/70 leading-relaxed">{prompt}</p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gold-700 dark:text-gold-400">
-                Enhanced Prompt
-              </label>
-              <div className="p-4 rounded-lg bg-gold-50 dark:bg-gold-900/20 border-2 border-gold-300 dark:border-gold-600">
-                <p className="text-navy-900 dark:text-white">{enhancedPrompt}</p>
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" />Enhanced
+              </p>
+              <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
+                <p className="text-sm text-white/80 leading-relaxed">{enhancedPrompt}</p>
               </div>
             </div>
 
-            <DialogFooter className="flex gap-3 pt-4">
+            <DialogFooter className="flex gap-2.5 pt-1">
               <Button
-                onClick={handleApplyEnhanced}
-                className="flex-1 bg-gradient-gold text-white hover:opacity-90"
+                onClick={() => { setPrompt(enhancedPrompt); setShowEnhDialog(false); toast.success('Enhanced prompt applied'); }}
+                className="flex-1 h-10 bg-purple-600 hover:bg-purple-500 text-white border-0 rounded-xl font-semibold text-sm"
               >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Apply Enhanced
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />Apply Enhanced
               </Button>
               <Button
-                onClick={handleKeepOriginal}
+                onClick={() => { setShowEnhDialog(false); toast.info('Keeping original'); }}
                 variant="outline"
-                className="flex-1 border-navy-300 dark:border-navy-600"
+                className="flex-1 h-10 rounded-xl border-white/10 text-white/60 hover:text-white bg-transparent hover:bg-white/5 text-sm"
               >
                 Keep Original
               </Button>

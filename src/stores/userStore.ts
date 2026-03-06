@@ -108,6 +108,7 @@ export function useSyncUserWithConvex() {
     clerkUser?.id ? { clerkId: clerkUser.id } : "skip"
   );
 
+  // Sync from Convex (primary)
   useEffect(() => {
     if (!clerkLoaded) return;
 
@@ -125,11 +126,11 @@ export function useSyncUserWithConvex() {
           email: convexUser.email,
           name: convexUser.name,
           avatar: convexUser.avatar,
-          onboardingCompleted: convexUser.onboardingCompleted,
+          onboardingCompleted: convexUser.onboardingCompleted ?? false,
           createdAt: convexUser.createdAt,
           updatedAt: convexUser.updatedAt,
         },
-        convexUser.stats || undefined,
+        (convexUser.stats as any) || undefined,
         (convexUser.achievements || []).map((a: any) => ({
           achievementId: a.achievementId,
           unlockedAt: a.unlockedAt,
@@ -137,6 +138,35 @@ export function useSyncUserWithConvex() {
       );
     }
   }, [clerkUser, convexUser, clerkLoaded, setUser, logout, setLoading]);
+
+  // ✅ Fallback: if Clerk is loaded but Convex doesn't respond after 4s,
+  // populate store directly from Clerk data so UI doesn't block indefinitely
+  useEffect(() => {
+    if (!clerkLoaded || !clerkUser) return;
+
+    const timer = setTimeout(() => {
+      const currentUser = useUserStore.getState().user;
+      if (!currentUser) {
+        console.warn('⚠️ Convex auth timeout — using Clerk fallback for user data');
+        setUser(
+          {
+            _id: clerkUser.id,
+            clerkId: clerkUser.id,
+            email: clerkUser.emailAddresses?.[0]?.emailAddress || '',
+            name: clerkUser.fullName || clerkUser.firstName || 'User',
+            avatar: clerkUser.imageUrl || undefined,
+            onboardingCompleted: false,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+          defaultStats,
+          []
+        );
+      }
+    }, 4000); // 4 second timeout
+
+    return () => clearTimeout(timer);
+  }, [clerkUser, clerkLoaded, setUser]);
 }
 
 export function useCompleteOnboarding() {
