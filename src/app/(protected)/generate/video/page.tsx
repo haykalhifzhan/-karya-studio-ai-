@@ -95,7 +95,7 @@ export default function VideoGeneratorPage() {
     if (!videoPrompt.trim()) { toast.error('Enter a description first'); return; }
     setIsEnhancing(true);
     try {
-      const res = await fetch('/api/enhance-video-prompt', {
+      const res = await fetch('/api/generate/enhance-video-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: videoPrompt, motionStyle }),
@@ -119,7 +119,7 @@ export default function VideoGeneratorPage() {
         toast.info('Uploading image...');
         const form = new FormData();
         form.append('file', uploadedFile);
-        const up = await fetch('/api/upload-to-oss', { method: 'POST', body: form });
+        const up = await fetch('/api/upload', { method: 'POST', body: form });
         const upd = await up.json();
         if (!upd.success) throw new Error(upd.message || 'Upload failed');
         imageUrlForApi = upd.url.trim();

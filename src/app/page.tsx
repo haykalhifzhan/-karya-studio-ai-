@@ -542,22 +542,30 @@ export default function Home() {
         </div>
 
         <Reveal animation="fade-scale" className={`relative ${CONTAINER} text-center`}>
-          <div style={{ borderRadius: '60px' }}
-            className="relative overflow-hidden bg-white/[0.04] backdrop-blur-3xl border border-white/20 border-t-white/30 shadow-[0_0_100px_rgba(139,92,246,0.2),inset_0_1px_0_rgba(255,255,255,0.10)] py-16 px-6 sm:px-12 lg:py-20 lg:px-16 mx-auto max-w-4xl">
-            {/* Internal orbs */}
-            <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-violet-600 opacity-25 blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-fuchsia-500 opacity-20 blur-3xl pointer-events-none" />
+        <div
+        style={{ borderRadius: '60px' }}
+        className="relative overflow-visible bg-white/[0.04] backdrop-blur-3xl border border-white/20 border-t-white/30 shadow-[0_0_100px_rgba(139,92,246,0.2),inset_0_1px_0_rgba(255,255,255,0.10)] py-16 px-6 sm:px-12 lg:py-20 lg:px-16 mx-auto max-w-4xl"
+      >
 
-            <div className="absolute left-1/2 -top-5 sm:-top-6 -translate-x-1/2 z-20">
-              <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-[#0f0518] px-4 py-2 sm:px-6 sm:py-2.5 shadow-[0_0_20px_rgba(139,92,246,0.3)]">
-                <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-400 fill-yellow-400" />
-                <span className="text-xs sm:text-sm text-purple-200 font-semibold uppercase tracking-wider">Join 500+ Indonesian UMKM</span>
-              </div>
-            </div>
+        {/* Orb wrapper */}
+        <div className="absolute inset-0 overflow-hidden rounded-[60px] pointer-events-none z-0">
+          <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-violet-600 opacity-25 blur-3xl" />
+          <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-fuchsia-500 opacity-20 blur-3xl" />
+        </div>
 
-            <div className="relative z-10 pt-8 sm:pt-6">
+        {/* Badge */}
+        <div className="absolute left-1/2 -top-6 sm:-top-7 -translate-x-1/2 z-20">
+          <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-[#0f0518] px-4 py-2 sm:px-6 sm:py-2.5 shadow-[0_0_20px_rgba(139,92,246,0.3)]">
+            <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-400 fill-yellow-400" />
+            <span className="text-xs sm:text-sm text-purple-200 font-semibold uppercase tracking-wider">
+              Join 500+ Indonesian UMKM
+            </span>
+          </div>
+        </div>
 
-              <h2 className="mb-6 py-2 text-4xl font-black text-white sm:text-5xl lg:text-5xl tracking-tight leading-loose" style={{ textShadow: '0 0 40px rgba(139,92,246,0.3)' }}>
+            <div className="relative z-10 pt-12 sm:pt-10">
+
+              <h2 className="mb-8 py-2 text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight" style={{ textShadow: '0 0 40px rgba(139,92,246,0.3)' }}>
                 Ready to Transform<br />
                 <span className="text-[#d946ef]">Your Business?</span>
               </h2>

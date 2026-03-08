@@ -13,8 +13,10 @@ import {
   LayoutDashboard,
   LayoutTemplate,
   LogOut,
+  Palette,
   Trophy,
   Video,
+  Wand2,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -23,6 +25,7 @@ import { usePathname } from 'next/navigation';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/generate/photo', label: 'Photo Generator', icon: Camera },
+  { href: '/edit/image', label: 'Image Editor', icon: Wand2 }, // ✅ NEW: Image Editor
   { href: '/generate/video', label: 'Video Generator', icon: Video },
   { href: '/templates', label: 'Templates', icon: LayoutTemplate },
   { href: '/gallery', label: 'Gallery', icon: Images },

@@ -56,7 +56,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 text-slate-400 text-sm font-light">
-          © 2024 KaryaStudio AI. All rights reserved.
+          © 2026 KaryaStudio AI. All rights reserved.
         </div>
       </div>
 

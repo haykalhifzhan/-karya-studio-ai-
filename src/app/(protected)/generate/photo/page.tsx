@@ -97,7 +97,7 @@ export default function PhotoGeneratorPage() {
     if (!prompt.trim()) { toast.error('Enter a prompt first'); return; }
     setIsEnhancing(true);
     try {
-      const res = await fetch('/api/enhance-prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+      const res = await fetch('/api/generate/enhance-prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
       const data = await res.json();
       if (data.success) { setEnhancedPrompt(data.enhanced); setShowEnhDialog(true); }
       else toast.error('Failed to enhance prompt');
@@ -106,38 +106,97 @@ export default function PhotoGeneratorPage() {
   };
 
   /* ── Generate ────────────────────────────────────────────────── */
-  const handleGenerate = async () => {
-    if (!prompt.trim()) { toast.error('Please enter a product description'); return; }
-    setIsGenerating(true); setProgress(0); setResults([]);
+const handleGenerate = async () => {
+  if (!prompt.trim()) {
+    toast.error('Please enter a product description');
+    return;
+  }
 
-    const tick = setInterval(() => {
-      setProgress((p) => { if (p >= 90) { clearInterval(tick); return 90; } return p + 3; });
-    }, 100);
+  setIsGenerating(true);
+  setProgress(0);
+  setResults([]);
 
-    try {
-      const res = await fetch('/api/generate/photo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, style: selectedStyle, variations, size: selectedSize }),
-      });
-      const data = await res.json();
-      clearInterval(tick); setProgress(100);
-
-      if (data.success) {
-        if (data.generation) addGeneration(data.generation);
-        const urls: string[] = data.generation?.resultUrls || [];
-        if (urls.length) { setResults(urls); toast.success(`${urls.length} photo${urls.length > 1 ? 's' : ''} generated!`); }
-        else toast.warning('No images returned — try a different prompt');
-      } else {
-        toast.error(data.message || 'Generation failed', { description: data.hint || '' });
+  const tick = setInterval(() => {
+    setProgress((p) => {
+      if (p >= 90) {
+        clearInterval(tick);
+        return 90;
       }
-    } catch (err) {
-      clearInterval(tick);
-      toast.error('Generation error', { description: err instanceof Error ? err.message : 'Unknown error' });
-    } finally {
-      setIsGenerating(false); setTimeout(() => setProgress(0), 800);
+      return p + 3;
+    });
+  }, 100);
+
+  try {
+    let referenceImageUrl: string | null = null;
+
+    // ✅ Upload to OSS first if user provided image
+    if (uploadedFile) {
+      const formData = new FormData();
+      formData.append('file', uploadedFile);
+
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const uploadData = await uploadRes.json();
+
+      if (!uploadData.success) {
+        throw new Error('Failed to upload image');
+      }
+
+      // 🔥 FIX 1: Trim URL dari response upload API (hapus spasi awal/akhir)
+      referenceImageUrl = uploadData.url?.toString().trim() || null;
+      
+      // Debug log untuk memastikan URL bersih
+      console.log('📤 Upload response URL:', `"${referenceImageUrl}"`);
+      console.log('📤 URL length:', referenceImageUrl?.length);
     }
-  };
+
+    // 🔥 FIX 2: Pastikan URL final yang dikirim sudah di-trim lagi (double safety)
+    const finalReferenceUrl = referenceImageUrl?.trim() || null;
+
+    const res = await fetch('/api/generate/photo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        style: selectedStyle,
+        variations,
+        size: selectedSize,
+        // 🔥 FIX 3: Kirim URL yang sudah pasti bersih
+        referenceImageUrl: finalReferenceUrl,
+      }),
+    });
+
+    const data = await res.json();
+    clearInterval(tick);
+    setProgress(100);
+
+    if (data.success) {
+      if (data.generation) addGeneration(data.generation);
+
+      const urls: string[] = data.generation?.resultUrls || [];
+
+      if (urls.length) {
+        setResults(urls);
+        toast.success(`${urls.length} photo${urls.length > 1 ? 's' : ''} generated!`);
+      } else {
+        toast.warning('No images returned — try a different prompt');
+      }
+    } else {
+      toast.error(data.message || 'Generation failed');
+    }
+
+  } catch (err: any) {
+    clearInterval(tick);
+    console.error('❌ Generation error:', err);
+    toast.error(err.message || 'Generation error');
+  } finally {
+    setIsGenerating(false);
+    setTimeout(() => setProgress(0), 800);
+  }
+};
 
   /* ── Download ────────────────────────────────────────────────── */
   const handleDownload = async (url: string, idx: number) => {
