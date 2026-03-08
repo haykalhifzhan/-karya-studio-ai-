@@ -1,10 +1,10 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { achievements as allAchievements, dailyTips } from '@/lib/constants';
-import { useGenerationStore } from '@/stores/generationStore';
 import { useUserStore } from '@/stores/userStore';
+import { useUser } from '@clerk/nextjs';
+import { useQuery } from 'convex/react';
 import {
   ArrowRight,
   Camera,
@@ -17,19 +17,26 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState, useEffect } from 'react';
-import { useQuery } from 'convex/react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../../../convex/_generated/api';
 import { useLanguage } from '../../../contexts/LanguageContext';
 
 export default function DashboardPage() {
   const { user, stats, achievements: unlockedAchievements } = useUserStore();
-  const { history } = useGenerationStore();
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
 
   const [convexTimedOut, setConvexTimedOut] = useState(false);
 
   const achievementsWithProgress = useQuery(api.achievements.getAllWithProgress, {});
+  const { user: clerkUser } = useUser();
+  const convexUser = useQuery(
+    api.auth.getCurrentUser,
+    clerkUser ? { clerkId: clerkUser.id } : "skip"
+  );
+  const recentGenerations = useQuery(
+    api.generations.listByUser,
+    convexUser ? { userId: convexUser._id, limit: 6 } : "skip"
+  );
 
   useEffect(() => {
     if (achievementsWithProgress === undefined) {
@@ -43,8 +50,6 @@ export default function DashboardPage() {
     return dailyTips[dayOfYear % dailyTips.length];
   }, []);
 
-  const recentGenerations = useMemo(() => history.slice(0, 6), [history]);
-
   const closestAchievements = useMemo(() => {
     if (!achievementsWithProgress || achievementsWithProgress.length === 0 || convexTimedOut) return [];
     return achievementsWithProgress
@@ -53,7 +58,7 @@ export default function DashboardPage() {
       .slice(0, 3);
   }, [achievementsWithProgress, convexTimedOut]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: number) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
@@ -89,6 +94,17 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3 justify-center pt-4">
           <div className="h-5 w-5 rounded-full border-2 border-purple-400 border-t-transparent animate-spin" />
           <p className="text-sm text-white/40">{language === 'id' ? 'Memuat dashboard...' : 'Loading dashboard...'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!recentGenerations) {
+    return (
+      <div className="min-h-screen p-6 lg:p-8 space-y-8">
+        <div className="flex items-center gap-3 justify-center pt-4">
+          <div className="h-5 w-5 rounded-full border-2 border-purple-400 border-t-transparent animate-spin" />
+          <p className="text-sm text-white/40">{language === 'id' ? 'Memuat karya terbaru...' : 'Loading recent creations...'}</p>
         </div>
       </div>
     );
@@ -305,7 +321,7 @@ export default function DashboardPage() {
             <div className="overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
               <div className="flex gap-4 min-w-max">
                 {recentGenerations.map((gen) => (
-                  <Link href="/gallery" key={gen.id} className="block group shrink-0">
+                  <Link href="/gallery" key={gen._id} className="block group shrink-0">
                     <div className="w-48 aspect-[3/4] relative rounded-2xl overflow-hidden border border-white/5 hover:border-purple-500/30 transition-all hover:-translate-y-1 duration-300 shadow-lg">
                       {gen.thumbnailUrl || gen.resultUrls?.[0] ? (
                         <>

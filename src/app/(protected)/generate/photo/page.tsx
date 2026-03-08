@@ -1,27 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import {
-  Camera,
-  Sparkles,
-  Download,
-  Loader2,
-  Image as ImageIcon,
-  Aperture,
-  Sun,
-  Crown,
-  Smile,
-  Upload,
-  X,
-  Maximize2,
-  ChevronLeft,
-  ChevronRight,
-  Wand2,
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -29,9 +9,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useGenerationStore } from '@/stores/generationStore';
-import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import type { PhotoStyle } from '@/types';
+import { useUser } from '@clerk/nextjs';
+import { useMutation, useQuery } from 'convex/react';
+import {
+  Aperture,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Crown,
+  Download,
+  Image as ImageIcon,
+  Loader2,
+  Maximize2,
+  Smile,
+  Sparkles,
+  Sun,
+  Upload,
+  Wand2,
+  X,
+} from 'lucide-react';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { api } from '../../../../../convex/_generated/api';
 
 /* ─── Data ─────────────────────────────────────────────────────── */
 
@@ -68,11 +70,15 @@ export default function PhotoGeneratorPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const addGeneration = useGenerationStore((s) => s.addGeneration);
 
   const MAX_CHARS = 500;
   const activeSize = SIZE_OPTIONS.find((s) => s.value === selectedSize)!;
-  const activeStyle = STYLE_OPTIONS.find((s) => s.id === selectedStyle)!;
+  const { user: clerkUser } = useUser();
+  const convexUser = useQuery(
+    api.auth.getCurrentUser,
+    clerkUser ? { clerkId: clerkUser.id } : "skip"
+  );
+  const createGeneration = useMutation(api.generations.create);
 
   /* ── Upload ─────────────────────────────────────────────────── */
   const processFile = (file: File) => {
@@ -106,97 +112,113 @@ export default function PhotoGeneratorPage() {
   };
 
   /* ── Generate ────────────────────────────────────────────────── */
-const handleGenerate = async () => {
-  if (!prompt.trim()) {
-    toast.error('Please enter a product description');
-    return;
-  }
+  const handleGenerate = async () => {
+    if (!prompt.trim()) {
+      toast.error('Please enter a product description');
+      return;
+    }
 
-  setIsGenerating(true);
-  setProgress(0);
-  setResults([]);
+    setIsGenerating(true);
+    setProgress(0);
+    setResults([]);
 
-  const tick = setInterval(() => {
-    setProgress((p) => {
-      if (p >= 90) {
-        clearInterval(tick);
-        return 90;
+    const tick = setInterval(() => {
+      setProgress((p) => {
+        if (p >= 90) {
+          clearInterval(tick);
+          return 90;
+        }
+        return p + 3;
+      });
+    }, 100);
+
+    try {
+      let referenceImageUrl: string | null = null;
+
+      // ✅ Upload to OSS first if user provided image
+      if (uploadedFile) {
+        const formData = new FormData();
+        formData.append('file', uploadedFile);
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+
+        if (!uploadData.success) {
+          throw new Error('Failed to upload image');
+        }
+
+        // 🔥 FIX 1: Trim URL dari response upload API (hapus spasi awal/akhir)
+        referenceImageUrl = uploadData.url?.toString().trim() || null;
+
+        // Debug log untuk memastikan URL bersih
+        console.log('📤 Upload response URL:', `"${referenceImageUrl}"`);
+        console.log('📤 URL length:', referenceImageUrl?.length);
       }
-      return p + 3;
-    });
-  }, 100);
 
-  try {
-    let referenceImageUrl: string | null = null;
+      // 🔥 FIX 2: Pastikan URL final yang dikirim sudah di-trim lagi (double safety)
+      const finalReferenceUrl = referenceImageUrl?.trim() || null;
 
-    // ✅ Upload to OSS first if user provided image
-    if (uploadedFile) {
-      const formData = new FormData();
-      formData.append('file', uploadedFile);
-
-      const uploadRes = await fetch('/api/upload', {
+      const res = await fetch('/api/generate/photo', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          style: selectedStyle,
+          variations,
+          size: selectedSize,
+          // ✅ Hanya tambahkan referenceImageUrl jika ada nilainya (tidak null/empty)
+          ...(finalReferenceUrl && { referenceImageUrl: finalReferenceUrl }),
+        }),
       });
 
-      const uploadData = await uploadRes.json();
+      const data = await res.json();
+      clearInterval(tick);
+      setProgress(100);
 
-      if (!uploadData.success) {
-        throw new Error('Failed to upload image');
+      if (data.success) {
+        const generation = data.generation; // asumsinya dari API
+
+        // Simpan ke Convex jika user tersedia
+        if (convexUser?._id && generation?.resultUrls?.length) {
+          try {
+            await createGeneration({
+              userId: convexUser._id,
+              type: 'photo',
+              prompt: prompt,
+              enhancedPrompt: undefined, // nanti bisa diisi jika ada fitur enhance
+              style: selectedStyle,
+              status: 'completed',
+              resultUrls: generation.resultUrls,
+              thumbnailUrl: generation.thumbnailUrl || generation.resultUrls[0],
+              // templateId: variations?.toString(), // optional
+            });
+          } catch (saveError) {
+            console.error('Failed to save to Convex:', saveError);
+          }
+        }
+
+        // Tampilkan hasil di UI
+        if (generation?.resultUrls?.length) {
+          setResults(generation.resultUrls);
+          toast.success(`${generation.resultUrls.length} photo(s) generated!`);
+        } else {
+          toast.warning('No images returned');
+        }
       }
 
-      // 🔥 FIX 1: Trim URL dari response upload API (hapus spasi awal/akhir)
-      referenceImageUrl = uploadData.url?.toString().trim() || null;
-      
-      // Debug log untuk memastikan URL bersih
-      console.log('📤 Upload response URL:', `"${referenceImageUrl}"`);
-      console.log('📤 URL length:', referenceImageUrl?.length);
+    } catch (err: any) {
+      clearInterval(tick);
+      console.error('❌ Generation error:', err);
+      toast.error(err.message || 'Generation error');
+    } finally {
+      setIsGenerating(false);
+      setTimeout(() => setProgress(0), 800);
     }
-
-    // 🔥 FIX 2: Pastikan URL final yang dikirim sudah di-trim lagi (double safety)
-    const finalReferenceUrl = referenceImageUrl?.trim() || null;
-
-    const res = await fetch('/api/generate/photo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt,
-        style: selectedStyle,
-        variations,
-        size: selectedSize,
-        // 🔥 FIX 3: Kirim URL yang sudah pasti bersih
-        referenceImageUrl: finalReferenceUrl,
-      }),
-    });
-
-    const data = await res.json();
-    clearInterval(tick);
-    setProgress(100);
-
-    if (data.success) {
-      if (data.generation) addGeneration(data.generation);
-
-      const urls: string[] = data.generation?.resultUrls || [];
-
-      if (urls.length) {
-        setResults(urls);
-        toast.success(`${urls.length} photo${urls.length > 1 ? 's' : ''} generated!`);
-      } else {
-        toast.warning('No images returned — try a different prompt');
-      }
-    } else {
-      toast.error(data.message || 'Generation failed');
-    }
-
-  } catch (err: any) {
-    clearInterval(tick);
-    console.error('❌ Generation error:', err);
-    toast.error(err.message || 'Generation error');
-  } finally {
-    setIsGenerating(false);
-    setTimeout(() => setProgress(0), 800);
-  }
-};
+  };
 
   /* ── Download ────────────────────────────────────────────────── */
   const handleDownload = async (url: string, idx: number) => {
@@ -415,28 +437,6 @@ const handleGenerate = async () => {
                 })}
               </div>
             </div>
-
-            {/* Variations */}
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Variations</p>
-                <span className="text-xs text-white/25">{variations} image{variations > 1 ? 's' : ''}</span>
-              </div>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setVariations(n)}
-                    className={`flex-1 h-10 rounded-xl text-sm font-bold border transition-all duration-200 ${variations === n
-                      ? 'bg-gradient-to-b from-violet-500 to-purple-600 border-purple-500/80 text-white shadow-lg shadow-purple-500/30'
-                      : 'border-white/15 bg-white/8 text-white/65 hover:text-white hover:bg-white/14 hover:border-white/25'
-                      }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Generate — mobile only */}
@@ -633,7 +633,7 @@ const handleGenerate = async () => {
 
       {/* ════════════ Enhance Dialog ════════════ */}
       <Dialog open={showEnhDialog} onOpenChange={setShowEnhDialog}>
-        <DialogContent className="max-w-lg rounded-2xl border-white/8 bg-[#0a0a0a]">
+        <DialogContent className="max-w-lg rounded-2xl border-white/8 bg-[#0a0a0a] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-white">
               <Wand2 className="w-4 h-4 text-purple-400" />

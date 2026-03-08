@@ -1,19 +1,31 @@
 'use client';
-import { useState, useRef } from 'react';
-import { 
-  Wand2, Download, Upload, Sparkles, Loader2, ChevronLeft, 
-  Image as ImageIcon, X, Eraser, Palette, Crop, Maximize2,
-  Waves, Zap, Film, ZoomIn
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import { useUser } from '@clerk/nextjs';
+import { useMutation, useQuery } from 'convex/react';
+import {
+  ChevronLeft,
+  Download,
+  Eraser,
+  Film,
+  Image as ImageIcon,
+  Loader2,
+  Maximize2,
+  Sparkles,
+  Upload,
+  Wand2,
+  X,
+  Zap
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { api } from '../../../../../convex/_generated/api';
 
 const QUICK_TOOL_PROMPTS = {
   'remove-bg': { name: 'Remove Bg', desc: 'Remove background completely', icon: Eraser, color: '#f472b6', bg: 'rgba(244,114,182,0.12)' },
@@ -44,6 +56,12 @@ export default function ImageEditorPage() {
 
   const MAX_CHARS = 500;
   const activeSize = SIZE_OPTIONS.find((s) => s.value === size)!;
+  const { user: clerkUser } = useUser();
+  const convexUser = useQuery(
+    api.auth.getCurrentUser,
+    clerkUser ? { clerkId: clerkUser.id } : "skip"
+  );
+  const createGeneration = useMutation(api.generations.create);
 
   /* ── Upload ─────────────────────────────────────────────────── */
   const processFile = (file: File) => {
@@ -55,8 +73,8 @@ export default function ImageEditorPage() {
     toast.success('Image uploaded');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { 
-    if (e.target.files?.[0]) processFile(e.target.files[0]); 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) processFile(e.target.files[0]);
   };
 
   const removeFile = () => {
@@ -78,16 +96,16 @@ export default function ImageEditorPage() {
         body: JSON.stringify({ prompt, style: activeTool || 'enhance' }),
       });
       const data = await res.json();
-      if (data.success) { 
-        setPrompt(data.enhanced); 
-        toast.success('Prompt enhanced!'); 
+      if (data.success) {
+        setPrompt(data.enhanced);
+        toast.success('Prompt enhanced!');
       } else {
         toast.error('Failed to enhance prompt');
       }
-    } catch { 
-      toast.error('Error enhancing prompt'); 
-    } finally { 
-      setIsEnhancing(false); 
+    } catch {
+      toast.error('Error enhancing prompt');
+    } finally {
+      setIsEnhancing(false);
     }
   };
 
@@ -99,19 +117,19 @@ export default function ImageEditorPage() {
     setIsEditing(true);
     setProgress(10);
     setEditedImage('');
-    
+
     try {
       let imageUrlForApi = previewUrl.trim();
-      
+
       if (uploadedFile) {
         setProgress(20);
         toast.info('Uploading image...');
         const form = new FormData();
         form.append('file', uploadedFile);
-        
+
         const up = await fetch('/api/upload', { method: 'POST', body: form });
         const upd = await up.json();
-        
+
         if (!upd.success) throw new Error(upd.message || 'Upload failed');
         imageUrlForApi = upd.url.trim();
         setProgress(50);
@@ -119,7 +137,7 @@ export default function ImageEditorPage() {
 
       setProgress(60);
       toast.info('Editing image with AI...');
-      
+
       const res = await fetch('/api/edit/with-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -132,16 +150,34 @@ export default function ImageEditorPage() {
 
       const data = await res.json();
       setProgress(100);
-      
+
       if (data.success) {
         setEditedImage(data.editedImageUrl);
+        if (convexUser?._id && data.editedImageUrl) {
+          try {
+            await createGeneration({
+              userId: convexUser._id,
+              type: 'photo', // always photo for image editing
+              prompt: prompt, // final prompt used (may be enhanced)
+              enhancedPrompt: undefined, // you can store the original if you track it separately
+              style: activeTool || undefined,
+              status: 'completed',
+              resultUrls: [data.editedImageUrl],
+              thumbnailUrl: data.editedImageUrl, // same image as thumbnail
+              // videoUrl, templateId, isFavorite omitted
+            });
+          } catch (saveError) {
+            console.error('Failed to save generation to Convex:', saveError);
+            // Optionally show a non‑blocking toast
+          }
+        }
         toast.success('Image edited successfully!');
       } else {
         toast.error(data.error || 'Failed to edit image');
       }
     } catch (err: any) {
-      toast.error('Error editing image', { 
-        description: err.message || 'Unknown error' 
+      toast.error('Error editing image', {
+        description: err.message || 'Unknown error'
       });
     } finally {
       setIsEditing(false);
@@ -224,18 +260,18 @@ export default function ImageEditorPage() {
 
       {/* ── Two-column layout ── */}
       <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
-        
+
         {/* ════════════ LEFT: Controls ════════════ */}
         <div className="space-y-3">
-          
+
           {/* ① Source Image */}
           <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
             <p className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">
               Source Image <span className="normal-case font-semibold text-white/60">· required</span>
             </p>
-            
+
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-            
+
             {previewUrl ? (
               <div onClick={removeFile} className="relative rounded-xl overflow-hidden border border-white/10 group cursor-pointer">
                 <img src={previewUrl} alt="Source" className="w-full aspect-video object-cover" />
@@ -273,11 +309,10 @@ export default function ImageEditorPage() {
                   <button
                     key={key}
                     onClick={() => handleQuickTool(key)}
-                    className={`relative flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 ${
-                      active
-                        ? 'border-purple-500/50 bg-purple-500/12'
-                        : 'border-white/12 bg-white/6 hover:bg-white/10 hover:border-white/20'
-                    }`}
+                    className={`relative flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 ${active
+                      ? 'border-purple-500/50 bg-purple-500/12'
+                      : 'border-white/12 bg-white/6 hover:bg-white/10 hover:border-white/20'
+                      }`}
                   >
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -304,7 +339,7 @@ export default function ImageEditorPage() {
                 {prompt.length}/{MAX_CHARS}
               </span>
             </div>
-            
+
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value.slice(0, MAX_CHARS))}
@@ -312,16 +347,16 @@ export default function ImageEditorPage() {
               className="min-h-[100px] resize-none bg-white/[0.03] border-white/8 text-white/90 placeholder:text-white/20 focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 rounded-xl text-sm leading-relaxed"
               maxLength={MAX_CHARS}
             />
-            
+
             <div className="mt-2 h-0.5 bg-white/5 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-200 ${prompt.length > MAX_CHARS * 0.9 ? 'bg-rose-500' : 'bg-purple-500/50'}`}
                 style={{ width: `${(prompt.length / MAX_CHARS) * 100}%` }}
               />
             </div>
-            
+
             <p className="text-xs text-white/25 mt-2">Leave empty — AI will use quick tool settings</p>
-            
+
             <button
               onClick={handleEnhance}
               disabled={isEnhancing || !prompt.trim()}
@@ -386,7 +421,7 @@ export default function ImageEditorPage() {
               </button>
             )}
           </div>
-          
+
           <div className="flex-1 p-6">
             {/* Loading */}
             {isEditing && (

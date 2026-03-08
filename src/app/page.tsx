@@ -306,10 +306,10 @@ export default function Home() {
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/login">
-            <button className="px-5 py-2 text-sm font-medium text-white/70 hover:text-white transition-colors">Login</button>
+            <button className="cursor-pointer px-5 py-2 text-sm font-medium text-white/70 hover:text-white transition-colors">Login</button>
           </Link>
           <Link href="/register">
-            <button className="px-5 py-2 text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-purple-600 rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(139,92,246,0.4)]">Get Started</button>
+            <button className="cursor-pointer px-5 py-2 text-sm font-bold text-white bg-gradient-to-r from-violet-600 to-purple-600 rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(139,92,246,0.4)]">Get Started</button>
           </Link>
         </div>
       </nav>
@@ -350,14 +350,14 @@ export default function Home() {
               {/* Call To Action Buttons */}
               <div className="animate-fade-in-up mt-8 md:mt-10 mb-16 flex flex-col sm:flex-row gap-4 sm:gap-5 justify-center w-full" style={{ animationDelay: '0.3s' }}>
                 <Link href="/register">
-                  <button className="group relative h-14 rounded-full bg-purple-900/40 backdrop-blur-md px-10 text-base font-bold text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_0_40px_rgba(168,85,247,0.7)] hover:bg-purple-800/50 border-2 border-purple-500/80 hover:border-purple-400 flex items-center justify-center gap-2 overflow-hidden mx-auto sm:mx-0 w-full sm:w-auto hover:-translate-y-0.5">
+                  <button className="cursor-pointer group relative h-14 rounded-full bg-purple-900/40 backdrop-blur-md px-10 text-base font-bold text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_0_40px_rgba(168,85,247,0.7)] hover:bg-purple-800/50 border-2 border-purple-500/80 hover:border-purple-400 flex items-center justify-center gap-2 overflow-hidden mx-auto sm:mx-0 w-full sm:w-auto hover:-translate-y-0.5">
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
                     <span className="relative z-10">Start Creating Free</span>
                     <ArrowRight className="h-4 w-4 relative z-10 group-hover:translate-x-1 transition-transform duration-200 cursor-pointer" />
                   </button>
                 </Link>
                 <Link href="/templates">
-                  <button className="group h-14 rounded-full border border-white/10 bg-black/20 backdrop-blur-md px-10 text-base font-medium text-slate-300 transition-all duration-200 hover:bg-white/10 hover:border-white/20 hover:text-white flex items-center justify-center mx-auto sm:mx-0 w-full sm:w-auto hover:-translate-y-0.5 shadow-sm">
+                  <button className="cursor-pointer group h-14 rounded-full border border-white/10 bg-black/20 backdrop-blur-md px-10 text-base font-medium text-slate-300 transition-all duration-200 hover:bg-white/10 hover:border-white/20 hover:text-white flex items-center justify-center mx-auto sm:mx-0 w-full sm:w-auto hover:-translate-y-0.5 shadow-sm">
                     Explore Templates
                   </button>
                 </Link>

@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, MutationCtx } from "./_generated/server";
-import { Id } from "./_generated/dataModel";  // ✅ IMPORT Id type
+import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "./auth";
 
 // Get user's generation history
@@ -44,67 +43,61 @@ export const getRecent = query({
     },
 });
 
-// Create new generation
 export const create = mutation({
     args: {
+        userId: v.id("users"),
         type: v.union(v.literal("photo"), v.literal("video")),
         prompt: v.string(),
+        enhancedPrompt: v.optional(v.string()),
         style: v.optional(v.string()),
-        variations: v.optional(v.number()),
-        batchMode: v.optional(v.boolean()),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("processing"),
+            v.literal("completed"),
+            v.literal("failed")
+        ),
+        resultUrls: v.array(v.string()),
+        thumbnailUrl: v.optional(v.string()),
+        videoUrl: v.optional(v.string()),
         templateId: v.optional(v.string()),
+        isFavorite: v.optional(v.boolean()),
     },
-    handler: async (ctx: MutationCtx, args) => {
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("Not authenticated");
+    handler: async (ctx, args) => {
+        const now = Date.now();
 
-        const generationId = await ctx.db.insert("generations", {
-            userId,  // ✅ userId is Id<"users"> from getAuthUserId
-            type: args.type,
-            prompt: args.prompt,
-            style: args.style,
-            status: "pending",
-            resultUrls: [],
-            isFavorite: false,
-            createdAt: Date.now(),
+        // 1. Insert the generation
+        await ctx.db.insert("generations", {
+            ...args,
+            createdAt: now,
         });
 
-        // Update user
-        const user = await ctx.db.get(userId);  // ✅ userId is Id<"users">
-        if (user) {
-            await ctx.db.patch(userId, {  // ✅ userId is Id<"users">
-                updatedAt: Date.now(),
-            });
-        }
-
-        // Update stats
+        // 2. Update or create userStats
         const stats = await ctx.db
             .query("userStats")
-            .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
-            .unique();
+            .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+            .first();
 
         if (stats) {
-            const updates: Record<string, any> = {
-                totalGenerations: (stats.totalGenerations ?? 0) + 1,
-            };
-
-            if (args.type === "photo") {
-                updates.totalPhotos = (stats.totalPhotos ?? 0) + 1;
-            } else {
-                updates.totalVideos = (stats.totalVideos ?? 0) + 1;
-            }
-
-            if (args.templateId) {
-                const templatesUsed = stats.templatesUsed ?? [];
-                if (!templatesUsed.includes(args.templateId)) {
-                    updates.templatesUsed = [...templatesUsed, args.templateId];
-                }
-            }
-
-            await ctx.db.patch(stats._id, updates);
+            await ctx.db.patch(stats._id, {
+                totalGenerations: (stats.totalGenerations || 0) + 1,
+                totalPhotos:
+                    args.type === "photo"
+                        ? (stats.totalPhotos || 0) + 1
+                        : stats.totalPhotos,
+                totalVideos:
+                    args.type === "video"
+                        ? (stats.totalVideos || 0) + 1
+                        : stats.totalVideos,
+            });
+        } else {
+            await ctx.db.insert("userStats", {
+                userId: args.userId,
+                totalGenerations: 1,
+                totalPhotos: args.type === "photo" ? 1 : 0,
+                totalVideos: args.type === "video" ? 1 : 0,
+                // other optional fields (templatesUsed, favoritesCount, batchesCompleted) are omitted
+            });
         }
-
-        return generationId;
     },
 });
 
@@ -142,9 +135,26 @@ export const update = mutation({
     },
 });
 
+export const listByUser = query({
+    args: {
+        userId: v.id("users"),
+        limit: v.optional(v.number())
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("generations")
+            .withIndex("by_user_created", (q) => q.eq("userId", args.userId))
+            .order("desc")
+            .collect();
+    },
+});
+
 // Toggle favorite
 export const toggleFavorite = mutation({
-    args: { generationId: v.id("generations") },
+    args: {
+        generationId: v.id("generations"),
+        isFavorite: v.optional(v.boolean()), // ← tambahkan opsional
+    },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Not authenticated");
@@ -154,11 +164,12 @@ export const toggleFavorite = mutation({
             throw new Error("Not found or unauthorized");
         }
 
-        await ctx.db.patch(args.generationId, {
-            isFavorite: !generation.isFavorite,
-        });
+        // Jika isFavorite dikirim, gunakan itu; jika tidak, toggle
+        const newFavorite = args.isFavorite !== undefined ? args.isFavorite : !generation.isFavorite;
 
-        // Update favorites count in stats
+        await ctx.db.patch(args.generationId, { isFavorite: newFavorite });
+
+        // Update favorites count di stats
         const stats = await ctx.db
             .query("userStats")
             .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
@@ -166,13 +177,13 @@ export const toggleFavorite = mutation({
 
         if (stats) {
             const currentCount = stats.favoritesCount ?? 0;
-            const newCount = generation.isFavorite
-                ? Math.max(0, currentCount - 1)
-                : currentCount + 1;
+            const newCount = newFavorite
+                ? currentCount + 1
+                : Math.max(0, currentCount - 1);
 
             await ctx.db.patch(stats._id, { favoritesCount: newCount });
         }
 
-        return !generation.isFavorite;
+        return newFavorite;
     },
 });

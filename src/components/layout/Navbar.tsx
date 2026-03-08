@@ -1,14 +1,12 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Menu, Sparkles, Bell, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ThemeToggle } from './ThemeToggle';
-import { LanguageSwitcher } from '@/components/language-switcher';  // ✅ Import LanguageSwitcher
+import { useLanguage } from '@/contexts/LanguageContext'; // ✅ Import useLanguage
 import { useAppStore } from '@/stores/appStore';
 import { useUserStore } from '@/stores/userStore';
-import { useLanguage } from '@/contexts/LanguageContext';  // ✅ Import useLanguage
+import { Menu } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { LanguageSwitcher } from '../language-switcher';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -42,16 +40,16 @@ export function Navbar() {
 
       <div className="flex items-center gap-2">
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative text-white/50 hover:text-white hover:bg-white/5 rounded-xl">
+        {/* <Button variant="ghost" size="icon" className="h-9 w-9 relative text-white/50 hover:text-white hover:bg-white/5 rounded-xl">
           <Bell className="h-4 w-4" />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-purple-400 shadow-sm shadow-purple-400/50" />
-        </Button>
+        </Button> */}
 
         {/* ✅ Language Switcher - Tambah di sini */}
         <LanguageSwitcher />
 
         {/* Dark Mode Toggle */}
-        <ThemeToggle />
+        {/* <ThemeToggle /> */}
 
         {/* User Profile */}
         <div className="hidden sm:flex items-center gap-2 rounded-xl border border-white/8 bg-white/4 px-3 py-1.5 hover:border-purple-500/20 transition-all duration-200">

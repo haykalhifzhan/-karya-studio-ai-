@@ -16,7 +16,7 @@ function sanitizeString(str: string): string {
 
 // 🔥 Helper: Sanitize filename
 function sanitizeFilename(filename: string): { name: string; extension: string } {
-  let cleaned = sanitizeString(filename);
+  const cleaned = sanitizeString(filename);
   const parts = cleaned.split('.');
   let extension = 'jpg';
   

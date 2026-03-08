@@ -1,31 +1,33 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import {
-  Video,
-  Play,
-  Download,
-  Loader2,
-  Upload,
-  Image as ImageIcon,
-  X,
-  Maximize2,
-  Sparkles,
-  Wand2,
-  Waves,
-  Zap,
-  Film,
-  ZoomIn,
-  ArrowLeft,
-  ArrowRight,
-} from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { useGenerationStore } from '@/stores/generationStore';
-import { toast } from 'sonner';
 import type { Generation } from '@/types';
+import { useUser } from '@clerk/nextjs';
+import { useQuery, useMutation } from 'convex/react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Download,
+  Film,
+  Loader2,
+  Maximize2,
+  Play,
+  Sparkles,
+  Upload,
+  Video,
+  Wand2,
+  Waves,
+  X,
+  Zap,
+  ZoomIn
+} from 'lucide-react';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { api } from '../../../../../convex/_generated/api';
 
 /* ─── Data ─────────────────────────────────────────────────────── */
 
@@ -68,6 +70,12 @@ export default function VideoGeneratorPage() {
 
   const MAX_CHARS = 500;
   const activeMotion = MOTION_STYLES.find((m) => m.id === motionStyle)!;
+  const { user: clerkUser } = useUser();
+  const convexUser = useQuery(
+    api.auth.getCurrentUser,
+    clerkUser ? { clerkId: clerkUser.id } : "skip"
+  );
+  const createGeneration = useMutation(api.generations.create);
 
   /* ── Upload ─────────────────────────────────────────────────── */
   const processFile = (file: File) => {
@@ -139,6 +147,35 @@ export default function VideoGeneratorPage() {
         setProgress(100);
         addGeneration(data.generation);
         setGeneratedVideo(data.generation);
+        if (data.success && data.generation) {
+          setProgress(100);
+          addGeneration(data.generation);
+          setGeneratedVideo(data.generation);
+          toast.success('Video generated!');
+
+          // Simpan ke Convex
+          if (convexUser?._id) {
+            try {
+              await createGeneration({
+                userId: convexUser._id,
+                type: 'video',
+                prompt: videoPrompt,
+                enhancedPrompt: enhancedPrompt || undefined, // jika ada
+                style: motionStyle,
+                status: 'completed',
+                resultUrls: data.generation.videoUrl ? [data.generation.videoUrl] : [],
+                thumbnailUrl: data.generation.thumbnailUrl,
+                videoUrl: data.generation.videoUrl,
+                // templateId, isFavorite optional
+              });
+            } catch (saveError) {
+              console.error('Gagal menyimpan ke Convex:', saveError);
+              // Jangan ganggu user, cukup log
+            }
+          } else {
+            console.warn('User Convex tidak ditemukan, generation tidak disimpan');
+          }
+        }
         toast.success('Video generated!');
       } else {
         toast.error(data.message || 'Failed to generate video', { description: data.hint || '' });
@@ -276,8 +313,8 @@ export default function VideoGeneratorPage() {
                     key={idx}
                     onClick={() => selectSample(img)}
                     className={`aspect-square rounded-xl overflow-hidden border-2 transition-all duration-200 hover:scale-105 ${previewUrl === img
-                        ? 'border-indigo-500 shadow-lg shadow-indigo-500/25'
-                        : 'border-white/10 hover:border-indigo-500/40'
+                      ? 'border-indigo-500 shadow-lg shadow-indigo-500/25'
+                      : 'border-white/10 hover:border-indigo-500/40'
                       }`}
                   >
                     <img src={img} alt={`Sample ${idx + 1}`} className="w-full h-full object-cover" />
@@ -340,8 +377,8 @@ export default function VideoGeneratorPage() {
                       key={style.id}
                       onClick={() => setMotionStyle(style.id)}
                       className={`relative flex items-center gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 ${active
-                          ? 'border-indigo-500/50 bg-indigo-500/8'
-                          : 'border-white/12 bg-white/6 hover:bg-white/10 hover:border-white/20'
+                        ? 'border-indigo-500/50 bg-indigo-500/8'
+                        : 'border-white/12 bg-white/6 hover:bg-white/10 hover:border-white/20'
                         }`}
                     >
                       <div
@@ -505,7 +542,7 @@ export default function VideoGeneratorPage() {
 
       {/* ════════════ Enhance Dialog ════════════ */}
       <Dialog open={showEnhDialog} onOpenChange={setShowEnhDialog}>
-        <DialogContent className="max-w-lg rounded-2xl border-white/8 bg-[#0a0a0a]">
+        <DialogContent className="max-w-lg rounded-2xl border-white/8 bg-[#0a0a0a] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-white">
               <Wand2 className="w-4 h-4 text-indigo-400" />

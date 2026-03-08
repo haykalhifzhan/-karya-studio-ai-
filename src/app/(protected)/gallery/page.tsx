@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Search, Heart, Trash2, Download, Camera, Video, Image as ImageIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { useGenerationStore } from '@/stores/generationStore';
-import { toast } from 'sonner';
 import type { Generation, GenerationType } from '@/types';
+import { useUser } from '@clerk/nextjs';
+import { useMutation, useQuery } from 'convex/react';
+import { Camera, Download, Heart, Image as ImageIcon, Search, Trash2, Video } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { api } from '../../../../convex/_generated/api';
 
 export default function GalleryPage() {
   const { history, toggleFavorite, removeGeneration } = useGenerationStore();
@@ -17,9 +19,30 @@ export default function GalleryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<Generation | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const { user: clerkUser } = useUser();
+  const convexUser = useQuery(
+    api.auth.getCurrentUser,
+    clerkUser ? { clerkId: clerkUser.id } : "skip"
+  );
+  const generations = useQuery(
+    api.generations.listByUser,
+    convexUser ? { userId: convexUser._id } : "skip"
+  );
+  const toggleFavoriteMutation = useMutation(api.generations.toggleFavorite);
+
+  let items: any[] = [];
+  if (generations) {
+    items = generations.map(gen => ({
+      ...gen,
+      id: gen._id,                     // gunakan _id sebagai id unik
+      createdAt: new Date(gen.createdAt).toISOString(), // konversi ke string untuk formatDate
+      isFavorite: gen.isFavorite ?? false,
+    }));
+  }
+
 
   const filteredItems = useMemo(() => {
-    return history.filter((item) => {
+    return items.filter((item) => {
       const matchesType = typeFilter === 'all' || item.type === typeFilter;
       const matchesFavorites = !favoritesOnly || item.isFavorite;
       const matchesSearch =
@@ -28,14 +51,15 @@ export default function GalleryPage() {
         item.enhancedPrompt?.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesType && matchesFavorites && matchesSearch && item.status === 'completed';
     });
-  }, [history, typeFilter, favoritesOnly, searchQuery]);
+  }, [items, typeFilter, favoritesOnly, searchQuery]);
 
-  const handleToggleFavorite = (id: string, e?: React.MouseEvent) => {
+  const handleToggleFavorite = async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    toggleFavorite(id);
-    if (selectedItem?.id === id) {
-      setSelectedItem({ ...selectedItem, isFavorite: !selectedItem.isFavorite });
-    }
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const newFavorite = !item.isFavorite;
+    await toggleFavoriteMutation({ generationId: id as any, isFavorite: newFavorite });
+    // Update lokal (akan otomatis karena query akan refresh)
     toast.success('Updated favorites');
   };
 
