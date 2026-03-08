@@ -175,10 +175,10 @@ export function useCompleteOnboarding() {
 
   const complete = async () => {
     try {
-      // Panggil Convex mutation
-      const result = await completeOnboardingMutation();
+      // Panggil mutation tanpa argumen
+      const result = await completeOnboardingMutation({});
 
-      // Update local state
+      // Update local store
       completeOnboarding();
       unlockAchievement('first-step');
 

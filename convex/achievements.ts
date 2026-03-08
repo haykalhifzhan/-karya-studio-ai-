@@ -123,7 +123,7 @@ export const getAllWithProgress = query({
 
         if (stats) {
           const criteria = achievement.criteria || '';
-          
+
           if (criteria.includes('Generate') && criteria.includes('photo')) {
             currentProgress = stats.totalPhotos || 0;
           } else if (criteria.includes('Generate') && criteria.includes('video')) {
@@ -197,26 +197,57 @@ export const unlock = mutation({
 
 // ✅ COMPLETE ONBOARDING AND UNLOCK
 export const completeOnboardingAndUnlock = mutation({
+  args: {}, // tidak perlu argumen userId
   handler: async (ctx) => {
     try {
       const clerkUserId = await getAuthUserId(ctx);
       if (!clerkUserId) throw new Error("Not authenticated");
 
-      // Find user by Clerk ID
-      const user = await ctx.db
+      // Cari user berdasarkan clerkId
+      let user = await ctx.db
         .query("users")
         .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkUserId))
         .unique();
 
-      if (!user) throw new Error("User not found");
+      // Jika belum ada, buat user baru dari identity Clerk
+      if (!user) {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("No identity");
 
-      // Update onboarding status
+        const now = Date.now();
+        const userId = await ctx.db.insert("users", {
+          clerkId: clerkUserId,
+          email: identity.email ?? "",
+          name: identity.name ?? "User",
+          avatar: identity.pictureUrl,
+          onboardingCompleted: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        // Inisialisasi userStats
+        await ctx.db.insert("userStats", {
+          userId,
+          totalGenerations: 0,
+          totalPhotos: 0,
+          totalVideos: 0,
+          totalEnhancements: 0,
+          templatesUsed: [],
+          favoritesCount: 0,
+          batchesCompleted: 0,
+        });
+
+        user = await ctx.db.get(userId);
+        if (!user) throw new Error("Failed to create user");
+      }
+
+      // Update onboardingCompleted
       await ctx.db.patch(user._id, {
         onboardingCompleted: true,
         updatedAt: Date.now(),
       });
 
-      // Check if achievement already unlocked
+      // Unlock achievement "first-step" jika belum
       const existing = await ctx.db
         .query("achievements")
         .withIndex("by_user_achievement", (q) =>
