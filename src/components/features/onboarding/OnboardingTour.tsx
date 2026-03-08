@@ -126,7 +126,6 @@ export function OnboardingTour() {
       toast.error('Failed to save progress, but you can continue!');
       console.error(error);
     }
-
     setTimeout(() => {
       setShowConfetti(false);
       router.push('/dashboard');
