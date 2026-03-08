@@ -105,28 +105,21 @@ function ConfettiEffect() {
 export function OnboardingTour() {
   const [currentStep, setCurrentStep] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
   const router = useRouter();
   const { user } = useUserStore();
   const { complete } = useCompleteOnboarding();
 
-  useEffect(() => {
-    if (user && !user.onboardingCompleted) {
-      setIsVisible(true);
-    } else {
-      setIsVisible(false);
-    }
-  }, [user, user?.onboardingCompleted]);
+  if (!user) return null;
+  if (user.onboardingCompleted) return null;
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const handleComplete = useCallback(async () => {
     if (isCompleting) return;
     setIsCompleting(true);
-
     setShowConfetti(true);
 
     try {
-      // Complete onboarding di Convex + unlock achievement
       await complete();
       toast.success('Onboarding complete! You earned the "First Step" badge!');
     } catch (error) {
@@ -136,7 +129,6 @@ export function OnboardingTour() {
 
     setTimeout(() => {
       setShowConfetti(false);
-      setIsVisible(false);
       router.push('/dashboard');
     }, 2500);
   }, [complete, router, isCompleting]);
@@ -159,11 +151,8 @@ export function OnboardingTour() {
     } catch (error) {
       console.error(error);
     }
-    setIsVisible(false);
     router.push('/dashboard');
   };
-
-  if (!isVisible || user?.onboardingCompleted) return null;
 
   const step = steps[currentStep];
   const Icon = step.icon;
